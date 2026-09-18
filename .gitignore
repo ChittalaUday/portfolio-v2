@@ -26,3 +26,8 @@ dist-ssr
 # contact requests — local database, never committed
 contact.db
 contact.db-journal
+
+# Environment variables
+.env
+.env.*
+*.env

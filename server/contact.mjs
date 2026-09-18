@@ -88,9 +88,9 @@ export function allow(ip, now = Date.now(), store = hits) {
  * install. Unconfigured is not an error: the request is already stored.
  */
 export async function notify(value, id) {
-  const key = process.env.RESEND_API_KEY
-  const to = process.env.CONTACT_TO
-  const from = process.env.CONTACT_FROM
+  const key = (process.env.RESEND_API_KEY || process.env.RESEND_TOKEN || '').trim()
+  const to = (process.env.CONTACT_TO || 'chitalauday@gmail.com').trim()
+  const from = (process.env.CONTACT_FROM || 'Portfolio <onboarding@resend.dev>').trim()
   if (!key || !to || !from) return { sent: false, reason: 'mail not configured' }
 
   const res = await fetch('https://api.resend.com/emails', {
@@ -104,5 +104,9 @@ export async function notify(value, id) {
       text: `${value.name} <${value.email}>\nrequest #${id}\n\n${value.message}`,
     }),
   })
-  return { sent: res.ok, reason: res.ok ? 'sent' : `resend ${res.status}` }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '')
+    return { sent: false, reason: `resend ${res.status}: ${detail}` }
+  }
+  return { sent: true, reason: 'sent' }
 }

@@ -14,6 +14,17 @@
 import { createServer } from 'node:http'
 import { allow, markNotified, notify, openDb, save, validate } from './contact.mjs'
 
+// Try loading .env if available
+try {
+  process.loadEnvFile()
+} catch {}
+try {
+  process.loadEnvFile(new URL('../.env', import.meta.url))
+} catch {}
+try {
+  process.loadEnvFile(new URL('./.env', import.meta.url))
+} catch {}
+
 const PORT = Number(process.env.PORT ?? 8787)
 /** The whole payload is capped at 2160 characters of content, so anything
  *  this size is not a contact request. */
