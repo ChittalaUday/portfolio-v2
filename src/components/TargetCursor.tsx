@@ -66,7 +66,8 @@ const TargetCursor: React.FC<TargetCursorProps> = ({
     if (typeof window === 'undefined') return false;
     const hasTouchScreen = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const isSmallScreen = window.innerWidth <= 768;
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const legacy = window as Window & { opera?: string };
+    const userAgent = navigator.userAgent || navigator.vendor || legacy.opera || '';
     const mobileRegex = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i;
     const isMobileUserAgent = mobileRegex.test(userAgent.toLowerCase());
     return (hasTouchScreen && isSmallScreen) || isMobileUserAgent;
@@ -92,6 +93,8 @@ const TargetCursor: React.FC<TargetCursorProps> = ({
   }, []);
 
   useEffect(() => {
+    // captured so the cleanup does not read a possibly-changed ref
+    const strength = activeStrengthRef.current;
     if (isMobile || !cursorRef.current) return;
 
     const originalCursor = document.body.style.cursor;
@@ -382,7 +385,7 @@ const TargetCursor: React.FC<TargetCursorProps> = ({
 
       isActiveRef.current = false;
       targetCornerPositionsRef.current = null;
-      activeStrengthRef.current.current = 0;
+      strength.current = 0;
     };
   }, [
     targetSelector,

@@ -14,10 +14,10 @@ export function Stack() {
     <section
       id="stack"
       aria-labelledby="stack-title"
-      className="border-t border-rule py-[clamp(6rem,14vh,12rem)]"
+      className="relative overflow-hidden border-t border-rule py-[clamp(6rem,14vh,12rem)]"
     >
       <div className="mb-16 px-[clamp(1.25rem,5vw,5rem)]">
-        <Slug index="03" label="Stack" className="mb-6 text-fg-muted" />
+        <Slug index="03" label="Stack" face="confus" className="mb-6 text-fg-muted" />
         <h2 id="stack-title" className="max-w-[24ch] text-[clamp(2rem,5vw,4rem)] leading-[0.94] tracking-[-0.03em]">
           What I actually reach for
         </h2>

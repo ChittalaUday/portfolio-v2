@@ -13,6 +13,7 @@ import {
   lookGaze,
   TURN_TIME,
 } from '@/lib/bloub'
+import { REVEAL_AT } from '@/lib/reveal'
 
 /** Ball radius in the -125..125 user space. */
 const R = 100
@@ -30,7 +31,13 @@ const r2 = (v: number) => Math.round(v * 100) / 100
  * The body is a true circle, which the entrance spin requires: on a
  * non-circular silhouette the eyes would follow the profile round and jitter.
  */
-export function BloubFace({ className = '' }: { className?: string }) {
+export function BloubFace({
+  className = '',
+  style,
+}: {
+  className?: string
+  style?: React.CSSProperties
+}) {
   const pointer = usePointer()
   const reduced = useReducedMotion()
   const svg = useRef<SVGSVGElement>(null)
@@ -90,7 +97,10 @@ export function BloubFace({ className = '' }: { className?: string }) {
     const start = performance.now()
     let frame = 0
     const tick = (now: number) => {
-      draw((now - start) / 1000, pointer?.current.active ?? false)
+      // clamped at 0 so the entrance spin holds — eyes behind the ball —
+      // until the load curtain has finished parting
+      const t = Math.max(0, (now - start) / 1000 - REVEAL_AT)
+      draw(t, pointer?.current.active ?? false)
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
@@ -102,6 +112,7 @@ export function BloubFace({ className = '' }: { className?: string }) {
       ref={svg}
       viewBox="-125 -125 250 250"
       aria-hidden="true"
+      style={style}
       className={`pointer-events-none select-none ${className}`}
     >
       <defs>

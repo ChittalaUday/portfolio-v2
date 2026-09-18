@@ -20,9 +20,9 @@ export function Contact() {
     <section
       id="contact"
       aria-labelledby="contact-title"
-      className="border-t border-rule px-[clamp(1.25rem,5vw,5rem)] py-[clamp(6rem,14vh,12rem)]"
+      className="relative overflow-hidden border-t border-rule px-[clamp(1.25rem,5vw,5rem)] py-[clamp(6rem,14vh,12rem)]"
     >
-      <Slug index="05" label={`Contact — currently taking work`} className="mb-10 text-fg-muted" />
+      <Slug index="05" label={`Contact — currently taking work`} face="excite" className="mb-10 text-fg-muted" />
 
       <h2 id="contact-title" className="mb-12">
         <a

@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react'
 import { usePointer } from '@/hooks/usePointer'
 import { ME } from '@/lib/content'
 import { axisStyle, WDTH, WGHT } from '@/lib/ripple'
+import { REVEAL_AT } from '@/lib/reveal'
 import { BloubFace } from '@/components/BloubFace'
 
 function useClock() {
@@ -79,7 +80,10 @@ function useRipple(reduced: boolean | null) {
     // the cached centres go stale twice over: the entrance animation moves
     // every character, and the webfont swapping in re-flows the line. Without
     // re-measuring, the ripple's hotspot sits off from the actual glyphs.
-    const settled = setTimeout(measure, 900)
+    // entrance now starts at REVEAL_AT and staggers across every character;
+    // measure once it has actually come to rest
+    const settleAt = (REVEAL_AT + chars.current.length * 0.018 + 0.7) * 1000
+    const settled = setTimeout(measure, settleAt)
     document.fonts.ready.then(measure)
     window.addEventListener('resize', measure)
     window.addEventListener('scroll', measure, { passive: true })
@@ -96,6 +100,13 @@ function useRipple(reduced: boolean | null) {
 
 export function Hero() {
   const reduced = useReducedMotion()
+  // every part of the hero waits for the curtain, so it arrives as one
+  // composition rather than labels-and-face first, headline second
+  const appear = {
+    initial: reduced ? false : ({ opacity: 0 } as const),
+    animate: { opacity: 1 },
+    transition: { duration: 0.5, delay: REVEAL_AT, ease: [0.16, 1, 0.3, 1] as const },
+  }
   const chars = useRipple(reduced)
   const clock = useClock()
 
@@ -110,11 +121,23 @@ export function Hero() {
     >
       {/* the face is the exact inverse of the ground: paper fill on ink, with
           the eyes knocked out so the ink shows through them */}
-      <BloubFace className="absolute top-1/2 -right-[3vw] -z-0 hidden h-[clamp(260px,32vw,460px)] w-[clamp(260px,32vw,460px)] -translate-y-1/2 text-paper lg:block" />
+      <motion.div
+        {...appear}
+        className="pointer-events-none absolute top-1/2 right-0 -z-0 hidden -translate-y-1/2 lg:block"
+      >
+        <BloubFace
+        // one variable drives both the size and the bleed: `right` is minus a
+        // quarter of the width, so exactly 3/4 of the ball stays on screen at
+        // every viewport — including past the clamp's ceiling, where a fixed
+        // vw offset would drift.
+        style={{ '--bloub': 'clamp(360px, 42vw, 720px)' } as React.CSSProperties}
+          className="relative right-[calc(var(--bloub)*-0.25)] block h-[var(--bloub)] w-[var(--bloub)] text-paper"
+        />
+      </motion.div>
 
-      <p className="relative z-10 mono-label text-fg-muted">
+      <motion.p {...appear} className="relative z-10 mono-label text-fg-muted">
         {ME.location} · {ME.status}
-      </p>
+      </motion.p>
 
       <h1 id="hero-title" className="relative z-10 my-auto">
         {/* the ripple needs per-character spans, which destroys the reading
@@ -138,7 +161,12 @@ export function Hero() {
                     }}
                     initial={reduced ? false : { y: '0.9em', opacity: 0, filter: 'blur(6px)' }}
                     animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-                    transition={{ type: 'spring', stiffness: 120, damping: 18, delay: i * 0.018 }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 120,
+                      damping: 18,
+                      delay: REVEAL_AT + i * 0.018,
+                    }}
                     className="inline-block will-change-transform"
                     style={{
                       fontVariationSettings: `'wght' ${WGHT[0]}, 'wdth' ${WDTH[0]}`,
@@ -153,14 +181,14 @@ export function Hero() {
         </span>
       </h1>
 
-      <div className="relative z-10 mono-label flex items-end justify-between text-fg-muted">
+      <motion.div {...appear} className="relative z-10 mono-label flex items-end justify-between text-fg-muted">
         <time ref={clock} dateTime="" className="tabular-nums">
           --:--:--
         </time>
         <a href="#about" className="transition-colors hover:text-signal">
           Scroll ↓
         </a>
-      </div>
+      </motion.div>
     </section>
   )
 }

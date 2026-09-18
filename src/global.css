@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "dither-plugin";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/bricolage-grotesque/wdth.css";
@@ -169,7 +170,8 @@
 
 @layer base {
     html {
-        scroll-behavior: smooth;
+        /* no `scroll-behavior: smooth` — Lenis drives scrolling and native
+           smooth scroll fights it */
         background: var(--ink);
     }
     body {
@@ -211,3 +213,21 @@
 }
 .marquee-track[data-dir='right'] { animation-name: marquee-right; }
 .marquee:hover .marquee-track { animation-play-state: paused; }
+
+/* ── Load curtain ─────────────────────────────────────────────────────── */
+@keyframes curtain-left {
+    to { transform: translateX(-101%); }
+}
+@keyframes curtain-right {
+    to { transform: translateX(101%); }
+}
+.curtain-half {
+    /* 101% not 100%: a subpixel seam shows at the edge otherwise.
+       duration and delay are set inline from src/lib/reveal.ts, which the
+       hero's entrance delay also reads. */
+    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    animation-fill-mode: forwards;
+    will-change: transform;
+}
+.curtain-half[data-side='left'] { animation-name: curtain-left; }
+.curtain-half[data-side='right'] { animation-name: curtain-right; }

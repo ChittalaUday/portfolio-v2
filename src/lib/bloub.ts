@@ -72,8 +72,18 @@ export const PITCH_MAX = 13
 export const PITCH = 10
 /** Head turns toward the page content rather than holding its rest pose. */
 export const TURN = 26
-/** A full turn travelled on the way in. Lands exact: -360° is the same as 0. */
-export const SPIN = 360
+/**
+ * Rotation travelled on the way in.
+ *
+ * A HALF turn, not upstream's full one. `SPIN * (1 - tour)` vanishes at
+ * `tour = 1` for any value, so either lands exactly — but 360° is the same
+ * angle as 0°, which means a full turn renders the eyes in their final position
+ * on the very first frame and then rotates back to where they already were.
+ * 180° puts them at the deepest point behind the ball instead (measured depth
+ * -0.75 / -0.96, both culled), so they are hidden until the turn brings them
+ * round, and arrive once.
+ */
+export const SPIN = 180
 export const TURN_TIME = 1.1
 
 type Vec3 = [number, number, number]
@@ -213,4 +223,111 @@ export function lookGaze(nx: number, ny: number, tour: number, hasPointer: boole
     pitch: PITCH - ny * PITCH_MAX + life.dPitch,
     roll: REST_GAZE.roll + life.dRoll,
   }
+}
+
+
+/* ─────────────────────── expressions (measured, upstream) ─────────────── */
+
+export interface EyeCfg {
+  /** width / height in units of ball radius */
+  w: number
+  h: number
+  /** degrees; positive = the top of the capsule leans right */
+  tilt: number
+}
+
+export interface Expression {
+  /** half-separation of the eyes on the sphere, degrees */
+  split: number
+  /** head roll — this is what carries the character (curiosity, confusion) */
+  roll: number
+  eyes: [EyeCfg, EyeCfg]
+}
+
+const eye = (w: number, h: number, tilt = 0): EyeCfg => ({ w, h, tilt })
+/** Both eyes the same, tilts mirrored — upstream's `pair()`. */
+const pair = (w: number, h: number, tilt = 0): [EyeCfg, EyeCfg] => [eye(w, h, tilt), eye(w, h, -tilt)]
+
+/**
+ * Ported verbatim from upstream's `expressions.ts`. Measured off the reference
+ * video, so the odd-looking numbers (0.45 x 0.47, a 1.6 ratio on one squint)
+ * are the point — see the note at the top of this file.
+ */
+export const EXPRESSIONS: Record<string, Expression> = {
+  neutre: { split: EYE_SPLIT, roll: REST_GAZE.roll, eyes: pair(EYE_W, EYE_H) },
+  attentif: { split: 16, roll: -4, eyes: pair(0.21, 0.44) },
+  surpris: { split: 19, roll: 0, eyes: pair(0.45, 0.47) },
+  excite: { split: 19.5, roll: 0, eyes: pair(0.4, 0.56, -10) },
+  heureux: { split: 17, roll: 0, eyes: pair(0.27, 0.17, 14) },
+  hilare: { split: 18, roll: 0, eyes: pair(0.34, 0.13, 20) },
+  // one eye frankly more closed than the other
+  mefiant: { split: 16, roll: -6, eyes: [eye(0.21, 0.4), eye(0.22, 0.15)] },
+  // asymmetric on both axes: mismatched sizes AND tilts
+  confus: { split: 16.5, roll: 8, eyes: [eye(0.2, 0.44, -18), eye(0.28, 0.17, 14)] },
+  // the head leans — roll is what carries the curiosity
+  curieux: { split: 16.5, roll: -15, eyes: [eye(0.24, 0.46, -8), eye(0.2, 0.38, -8)] },
+}
+
+/* ─────────────────────── follow gaze (for small marks) ────────────────── */
+
+/**
+ * How far the head swings when it is pointing AT the cursor.
+ *
+ * Wider than the hero's ±16 because the hero holds a fixed -26 turn toward the
+ * page content and only wobbles around it — correct for a face pinned to the
+ * right edge, wrong for a small mark sitting in the middle of a column, which
+ * has to be able to look either way.
+ */
+export const FOLLOW_YAW = 34
+export const FOLLOW_PITCH = 26
+/** px from the mark at which the swing saturates. */
+export const FOLLOW_RADIUS = 520
+
+/** Head pose for a mark that simply looks at the pointer. */
+export function followGaze(dx: number, dy: number, roll: number): HeadGaze {
+  return {
+    yaw: clamp(dx / FOLLOW_RADIUS, -1, 1) * FOLLOW_YAW,
+    // screen y grows downward; positive pitch looks up
+    pitch: -clamp(dy / FOLLOW_RADIUS, -1, 1) * FOLLOW_PITCH,
+    roll,
+  }
+}
+
+/* ─────────────────────── eye rendering ────────────────── */
+
+export interface RenderedEye {
+  d: string
+  matrix: string
+  opacity: number
+}
+
+const r2 = (v: number) => Math.round(v * 100) / 100
+
+/**
+ * Turns an expression plus a head pose into two drawable eyes.
+ *
+ * The per-eye `tilt` is composed with the tangent frame (basis x rotation),
+ * which is what allows mirrored tilts between the two eyes. The blink is
+ * applied AFTER that — it is a vertical squash on screen, not a shrink along
+ * the capsule's own axis.
+ */
+export function renderEyes(expr: Expression, gaze: HeadGaze, R: number, lid = 1): (RenderedEye | null)[] {
+  const poses = eyePoses(gaze, R, expr.split)
+  const k = blinkScale(lid)
+  return poses.map((e, i) => {
+    if (e.depth <= 0.02) return null
+    const cfg = expr.eyes[i]!
+    const phi = (cfg.tilt * Math.PI) / 180
+    const cp = Math.cos(phi)
+    const sp = Math.sin(phi)
+    const ax = e.a * cp + e.c * sp
+    const ay = e.b * cp + e.d * sp
+    const cx = -e.a * sp + e.c * cp
+    const cy = -e.b * sp + e.d * cp
+    return {
+      d: capsulePath(cfg.w * R, cfg.h * R),
+      matrix: `matrix(${r2(ax)},${r2(ay * k)},${r2(cx)},${r2(cy * k)},${r2(e.x)},${r2(e.y)})`,
+      opacity: clamp(e.depth / 0.12),
+    }
+  })
 }

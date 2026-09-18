@@ -67,14 +67,33 @@ test('both eyes face the viewer at rest', () => {
   for (const e of eyePoses(REST_GAZE, R)) assert.ok(e.depth > 0.02, `eye culled at rest: depth ${e.depth}`)
 })
 
-test('the entrance spin lands exactly — -360 is the same angle as 0', () => {
-  // this is the whole reason the spin needs no clean-up frame
-  const landed = eyePoses(lookGaze(0.3, -0.2, 1, true, 0), R)
-  const spun = eyePoses({ ...lookGaze(0.3, -0.2, 1, true, 0), yaw: lookGaze(0.3, -0.2, 1, true, 0).yaw + SPIN }, R)
-  landed.forEach((e, i) => {
-    assert.ok(Math.abs(e.x - spun[i]!.x) < 1e-6, `x drifted by ${e.x - spun[i]!.x}`)
-    assert.ok(Math.abs(e.a - spun[i]!.a) < 1e-6, `a drifted by ${e.a - spun[i]!.a}`)
-  })
+test('the entrance lands exactly — the spin term vanishes at tour = 1', () => {
+  // this is why the turn needs no clean-up frame. It holds for any SPIN value:
+  // what matters is the term going to zero, not SPIN being a multiple of 360.
+  const landed = lookGaze(0.3, -0.2, 1, true, 0)
+  const pure = { ...landed, yaw: landed.yaw - SPIN * (1 - 1) }
+  assert.ok(Math.abs(landed.yaw - pure.yaw) < 1e-9, 'residual spin at tour = 1')
+})
+
+test('at tour = 0 both eyes are hidden behind the ball', () => {
+  // the point of a half turn rather than a full one: 360deg is the same angle
+  // as 0, so a full turn would render the eyes in their final position on the
+  // first frame and then rotate back to where they already were
+  for (const nx of [-1, -0.5, 0, 0.5, 1]) {
+    for (const ny of [-1, 0, 1]) {
+      for (const e of eyePoses(lookGaze(nx, ny, 0, true, 0), R)) {
+        assert.ok(e.depth <= 0.02, `eye visible on the first frame at nx=${nx} ny=${ny}: depth ${e.depth}`)
+      }
+    }
+  }
+})
+
+test('by tour = 1 both eyes have arrived and are visible', () => {
+  for (const nx of [-1, 0, 1]) {
+    for (const e of eyePoses(lookGaze(nx, 0, 1, true, 0), R)) {
+      assert.ok(e.depth > 0.02, `eye still culled after the turn at nx=${nx}: depth ${e.depth}`)
+    }
+  }
 })
 
 test('the spin actually carries the eyes behind the ball on the way in', () => {

@@ -79,10 +79,10 @@ export function Projects() {
     <section
       id="work"
       aria-labelledby="work-title"
-      className="bg-paper px-[clamp(1.25rem,5vw,5rem)] py-[clamp(6rem,14vh,12rem)] text-[oklch(0.145_0.008_62)]"
+      className="relative overflow-hidden bg-paper px-[clamp(1.25rem,5vw,5rem)] py-[clamp(6rem,14vh,12rem)] text-[oklch(0.145_0.008_62)]"
       onMouseLeave={() => setHovered(null)}
     >
-      <Slug index="04" label="Work" className="mb-6 opacity-60" />
+      <Slug index="04" label="Work" face="mefiant" className="mb-6" />
       <h2
         id="work-title"
         className="mb-16 max-w-[20ch] text-[clamp(2rem,5vw,4rem)] leading-[0.94] tracking-[-0.03em]"

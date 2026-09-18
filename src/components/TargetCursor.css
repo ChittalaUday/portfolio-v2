@@ -5,7 +5,10 @@
   width: 0;
   height: 0;
   pointer-events: none;
-  z-index: 9999;
+  z-index: 90; /* under the load curtain (100), over the hero face */
+  /* difference blending is why this needs no per-section colour: it inverts
+     against whatever ground it is over, so it stays legible on both the ink
+     sections and the inverted paper ones */
   mix-blend-mode: difference;
   transform: translate(-50%, -50%);
 }
@@ -16,7 +19,7 @@
   top: 50%;
   width: 4px;
   height: 4px;
-  background: #fff;
+  background: var(--fg);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   will-change: transform;
@@ -28,7 +31,7 @@
   top: 50%;
   width: 12px;
   height: 12px;
-  border: 3px solid #fff;
+  border: 3px solid var(--fg);
   will-change: transform;
 }
 

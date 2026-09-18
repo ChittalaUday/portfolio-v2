@@ -278,16 +278,27 @@ are carried over verbatim, including the traps it warns against "correcting":
   than the `neutre` rest values — that state's own measured numbers, not an
   invented scale-up, and the right one for a face whose job is watching the
   pointer.
-- **The entrance spin** carries the eyes a full 360° round the back of the ball
-  and lands exact by construction, `-360°` being the same angle as `0`.
+- **The entrance spin** is the one place this deviates from upstream, and
+  deliberately: theirs travels a full **360°**, which is the same angle as `0`,
+  so the eyes render in their *final* position on the very first frame and then
+  rotate back to where they already were. Measured depth at that start angle is
+  `[0.749, 0.958]` — fully visible. A **half turn (180°)** starts them at the
+  deepest hidden point instead (`[-0.749, -0.958]`, both culled), so they are
+  absent until the turn brings them round, and arrive once.
+  The landing is unaffected: `SPIN * (1 - tour)` vanishes at `tour = 1` for any
+  value, so the eyes settle on exactly the same tracking pose either way —
+  verified by comparing settled matrices with and without the spin playing.
 
 Under `prefers-reduced-motion` the face still renders — it is content, not
 decoration — but as a single landed, pointer-less pose with no rAF loop. It is
 hidden below `lg`, where it would collide with the headline and where there is
 no pointer to follow anyway.
 
-**3 — the bloub companion, replacing the hero cursor dot.** A `44px` animated character following
-the pointer at `0.12` lerp, swapping expression as the page scrolls:
+**3 — ~~the bloub companion~~ — RETIRED.** A `44px` animated character used to follow the pointer,
+swapping expression per section. It has been replaced by `TargetCursor` (§6): only one thing may
+follow the pointer, and the corner-bracket reticle is the chosen cursor. `Bloub.tsx` and the six
+staged SVGs under `src/assets/bloub/` are deleted — the originals remain in
+`public/bloub-assets/`, so it is reversible. The expression-per-section mapping it used was:
 
 | Section | File |
 |---|---|
@@ -298,12 +309,49 @@ the pointer at `0.12` lerp, swapping expression as the page scrolls:
 | `05` Contact | `expressions/animated/heureux.svg` |
 | `06` Footer | `animations/animated/sleep-anime.svg` |
 
-A character that watches the page and reacts, assembled from assets already committed — against a
-`20px` div, which is what the first draft specified and what every cursor-effect tutorial ships.
-This is the one warm element on an otherwise cold page, which is why it works; two would not.
+Retiring it also removed the `section` state and the `IntersectionObserver` in `App.tsx` that
+existed solely to feed it — nothing else consumed either.
 
-Hidden under `prefers-reduced-motion` and on touch (no pointer to follow, and the SMIL loops are
-motion the user declined).
+**4 — a small live mark beside every section slug, and one in the About lede.** Decoration is
+**anchored to type, never scattered as background**. Each non-hero section's `Slug` carries a `36px`
+`BloubMark` and the About lede ends with a `1.6em` one riding the sentence like punctuation.
+
+`BloubMark` is a **separate component from `BloubFace`, and has to be.** The hero face holds a fixed
+`-26°` turn toward the page content and only wobbles `±16°` around it — correct for a face pinned to
+the right edge, and wrong for a mark sitting mid-column, because the yaw never crosses zero: it kept
+looking left even with the cursor to its right. `BloubMark` derives yaw and pitch from the actual
+offset to the pointer (`followGaze`, `±34°` / `±26°`, saturating at `520px`), so it points the right
+way from any position. The shared sphere maths lives in `renderEyes`; only the gaze rule differs, and
+the hero stays on its original code path untouched.
+
+Verified per axis rather than by eye — cursor left vs right, up vs down, for three marks:
+
+| mark | cursor left | cursor right | cursor up | cursor down |
+|---|---|---|---|---|
+| About (`curieux`) | `x -24.5` | `x +44.2` | `y -26.4` | `y +26.4` |
+| Work (`mefiant`) | `x -23.3` | `x +44.3` | `y -26.5` | `y +26.5` |
+| Contact (`excite`) | `x -43.5` | `x +43.5` | `y -26.0` | `y +26.0` |
+
+The left/right asymmetry on the first two is not a bug: those expressions carry head roll
+(`curieux` -15°, `mefiant` -6°), which biases eye position. `excite` at roll 0 is symmetric.
+
+**Expressions are per mark**, ported verbatim from upstream's `expressions.ts` — measured, so the
+odd ratios are deliberate: `curieux` (About slug), `heureux` (About lede), `confus` (Stack),
+`mefiant` (Work), `excite` (Contact). Supporting them meant implementing two things the first
+renderer skipped: **per-eye `tilt`**, composed with the tangent frame so the two eyes can mirror,
+and **asymmetric eyes** — `mefiant` and `confus` have mismatched sizes *and* tilts, which is what
+makes them read. Checked that all nine expressions keep both eyes in front of the limb at full
+deflection.
+
+They take no colour of their own: `BloubFace` fills with `currentColor`, so a face comes out ink on
+the paper sections and near-white on the ink ones without being told which ground it is on. All of
+them sit in normal flow (`position: static`), which is what keeps them off the type.
+
+An earlier pass scattered ~15 absolutely-positioned blobs — shapes, expressions and animation
+states — across the five sections at low opacity. It was removed: as background texture it read as
+noise, and floating decoration has to be collision-checked against every text box forever, whereas
+type-anchored marks simply cannot drift onto the words. The kit's shape and expression variety now
+lives only where it does structural work (the clip-path masks above, the hero face).
 
 **Bundling:** `public/` is served rather than bundled, so the ~230 unreferenced files cost **zero
 transfer** — pruning them is repo hygiene, not a performance fix, and the claim shouldn't be
@@ -462,7 +510,13 @@ Motion is the deliverable here, so it gets specified rather than improvised.
 | Move | Trigger | Values |
 |---|---|---|
 | Hero character axes | `pointermove` | `wght 300→800` + `wdth 100→75`, `180px` falloff, no transition (must track 1:1) |
-| Hero entrance | mount | `y 0.9em → 0`, `blur 6→0`, stagger `18ms`, spring `120/18` |
+| Cursor reticle spin | always | `3s` linear, continuous — the one perpetual motion besides the marquee |
+| Cursor lock-on | hover a target | corners tween to the target's bounding box, `0.2s` |
+| Load curtain | mount | two `--paper` halves, `translateX ±101%`, `1s`, `0.12s` delay, house curve |
+| Hero arrival | `REVEAL_AT` (0.82s) | labels, face and headline fade `0.5s` together — the hero appears as one composition |
+| Slug marks | `pointermove` | `followGaze` — points at the pointer from any position, `±34°`/`±26°`, saturating at `520px`; one per section plus one in the About lede |
+| Face eyes arrive | `REVEAL_AT` → `+1.1s` | half-turn spin from behind the ball; hidden on first paint, visible from ~`1.1s`, settled by ~`1.9s` |
+| Hero entrance | `REVEAL_AT` | `y 0.9em → 0`, `blur 6→0`, stagger `18ms`, spring `120/18` |
 | Bloub companion | `pointermove` | lerp `0.12`, expression swaps per section |
 | Section reveal | `whileInView` once, `-15%` | `y 24 → 0`, `opacity 0→1`, `520ms`, `cubic-bezier(0.16,1,0.3,1)` |
 | Marquee | always | `60s linear infinite`, paused on hover |
@@ -471,10 +525,24 @@ Motion is the deliverable here, so it gets specified rather than improvised.
 | Contact rule | hover | `scaleX 0→1`, `340ms`, origin left |
 
 Rules:
-- Nothing animates longer than `600ms` except the marquee.
+- Nothing animates longer than `600ms` except the marquee and the cursor's spin.
+- Load order is one constant: `src/lib/reveal.ts` exports `REVEAL_AT`, which the curtain uses for
+  its CSS timing (set inline, not hardcoded in the stylesheet) and every hero element uses for its
+  delay. They cannot drift apart. `REVEAL_AT` waits `0.62` of the curtain's duration rather than
+  all of it — the timing function is a hard ease-out, so ~97% of the travel is done by ~0.6 of the
+  time, and waiting for the formal end left a visible window where the hero was exposed but
+  empty.
 - Only `transform`, `opacity`, `filter` and `font-variation-settings`. Never `width`/`top`/`left`.
 - Ease out, not in-out. `cubic-bezier(0.16, 1, 0.3, 1)` is the house curve.
-- Scroll-linked motion uses `motion`'s `useScroll`. No scroll-hijacking, no smooth-scroll library.
+- Scroll-linked motion uses `motion`'s `useScroll`. No scroll-hijacking.
+- Smooth scrolling is **Lenis** (`lerp 0.09`, `anchors: true`), off under reduced motion.
+- The cursor is **TargetCursor**: a dot plus four corner brackets that snap around whatever is
+  hovered. `targetSelector` is `a[href], button` rather than a hand-applied `.cursor-target`
+  class, so every link and button is a target automatically and new ones are picked up without
+  anyone remembering to mark them. `mix-blend-mode: difference` is what makes it need no
+  per-section colour — it inverts against whatever ground it is over, so a single `--fg` value
+  stays legible on the ink sections and the inverted paper ones alike. Not mounted under reduced
+  motion (it spins continuously and hides the native cursor) and it self-disables on touch.
 
 ### Reduced motion — not optional
 
@@ -521,10 +589,27 @@ the two things that change — see §4.
 - lucide-react                               # arrows are glyphs; brand marks are in icons.svg
 ```
 
-Still not needed: GSAP or ScrollTrigger (`motion`'s `useScroll` covers it), Lenis or Locomotive
-(native `scroll-behavior`), `three`/R3F (the hero is type), `react-intersection-observer`
+```
++ lenis                                      # smooth scrolling, chosen deliberately
++ gsap                                       # required by TargetCursor
+```
+
+An earlier revision of this document listed Lenis under "not needed", on the grounds that native
+`scroll-behavior: smooth` covers anchor jumps. That was true of anchors and not of the thing Lenis
+is actually for — inertial wheel scrolling, which native CSS does not do at all. It is in by
+explicit choice. `scroll-behavior: smooth` has been **removed** from `html`, because native smooth
+scroll and Lenis fight each other; under reduced motion Lenis is not mounted and native instant
+jumps are what remains, which is correct.
+
+GSAP is a second reversal, and for the same reason as the first: it is a peer requirement of the
+`TargetCursor` component, which was chosen for the cursor. Nothing else in the page uses it —
+scroll-linked motion still goes through `motion`'s `useScroll`, and no ScrollTrigger is involved.
+
+Still not needed: ScrollTrigger, Locomotive (Lenis is
+smaller and does the same job), `three`/R3F (the hero is type), `react-intersection-observer`
 (`whileInView`), a split-text library (`Array.from(str)`), a clipboard library
-(`navigator.clipboard`), an icon library (see §4), an image CDN (six images).
+(`navigator.clipboard`), an icon library (see §4), an image CDN, an image-processing dependency
+(see §4 — `tools/dither.py` is stdlib).
 
 Files:
 
@@ -572,6 +657,16 @@ disagreed with the spec above, the build is right and the reason is here.
 | Hero cursor dot → 44px companion | a large sphere-model **face** (§4), companion suppressed on the hero | Two bloubs on one screen is clutter; the hero gets the character, the other five sections get the cursor companion. |
 | Eyes translated in 2D | full tangent-frame projection ported from upstream | 2D translation has no depth compression, no lean and no limb — it reads as a sticker, not a head. |
 | — | `overflow-hidden` on the hero | The face bleeds past the right edge, which added horizontal document overflow until the section clipped it. |
+| Portrait as a duotone plate | a 1-bit Bayer dither of the real photo, generated by `tools/dither.py` | Stdlib-only (`zlib` + `struct`) because the machine's ffmpeg is broken and Pillow is absent. Bayer over Floyd–Steinberg: the ordered matrix reads as screen-printing, diffusion noise reads as a JPEG artefact. |
+| Dither as a tokenised CSS `mask-image` | colour baked into RGB, dither in alpha | Browsers smooth a scaled mask, softening the very dots that are the point; a baked PNG with `image-rendering: pixelated` keeps them square. |
+| Portrait on `bg-ink` | ink dots on a lightly tinted pebble | On a dark ground a 1-bit mask of a light-backdrop photo forces a negative — hair goes light, shirt vanishes. On paper the tonality is correct *and* the studio backdrop drops out for free. A fully transparent ground made the clip-path invisible, so the pebble keeps a soft tint. |
+| No smooth-scroll library | Lenis | See §8. |
+| Bloub cursor companion | `TargetCursor` corner-bracket reticle | Chosen cursor; one pointer-follower, not two. Moved out of a literal `@/components/` directory (a registry install had resolved the `@/components` alias as a real folder name) into `src/components/`, and its two lint errors fixed — an `any` on the legacy `window.opera` sniff, and a ref read inside effect cleanup. |
+| — | `section` state + `IntersectionObserver` deleted from `App.tsx` | They existed only to drive the retired companion's expression. |
+| Scattered background blobs | faces anchored to the slugs and the About lede | Floating decoration read as noise and needed permanent collision-checking against the type; anchored marks cannot drift onto the words. |
+| Entrance spin of 360° | half turn, 180° | 360° is the same angle as 0, so the eyes were fully visible on the first frame and then rotated back to where they already were. |
+| Hero entrance ran *under* the curtain | holds until `REVEAL_AT`, then the whole hero arrives together | Delaying only the headline left the labels and the face on screen with an empty middle — the hero appeared half-built. The face's entrance spin and the ripple's char re-measure both had to move with it, or the spin played behind the curtain and the ripple cached centres while the type was still travelling. |
+| — | load curtain | Two paper halves parting from the centre. CSS keyframes, not state, so it runs from the first frame with nothing to coordinate against the hero's own entrance. Deliberately does **not** wait on `document.fonts.ready`: a font that never resolves would trap the viewer behind a white screen. Skipped entirely under reduced motion rather than flashing white and vanishing. |
 | `data/projects.ts` + `data/stack.ts` | one `lib/content.ts` | Two files for one import site. |
 | Project `kind` column | fixed `w-56 truncate` | Right-aligning the metadata as a group left the `kind` left edges ragged; `w-44` made "Realtime analytics" wrap and broke the row baseline. Rows now measure 124px each with columns locked at x=1024 / 1280. |
 | Brand marks from `icons.svg` | same, with baked fills stripped | The sprite's paths carried `fill="#08060d"`, which an outer `fill-current` cannot override — the marks were near-black on ink and invisible. |
@@ -584,8 +679,10 @@ Two checks live in the repo rather than in prose:
   silently clamped by the font, so a bug there would otherwise be invisible.
 - `src/lib/bloub.test.ts` — the ported sphere model: depth compression inside
   the measured 0.6–0.8 band, the `\` lean at rest at ~26° off vertical, both
-  eyes facing front, the spin genuinely crossing the limb, and the spin landing
-  exactly. Upstream's "verified traps" turned into assertions, so a later
+  eyes facing front, the spin genuinely crossing the limb, the entrance landing
+  exactly, and — across the whole pointer envelope — both eyes **hidden at
+  `tour = 0`** and **visible by `tour = 1`**. That pair is what stops anyone
+  restoring the 360° spin and silently reintroducing eyes-on-first-frame. Upstream's "verified traps" turned into assertions, so a later
   tidy-up cannot silently break the likeness. Worst lean across the tracking
   envelope is `c = -0.088` (~5°, below perception) at the far corner; the bound
   sits just past it so a real sign flip still fails.
