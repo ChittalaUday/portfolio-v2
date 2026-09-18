@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { MotionConfig, useReducedMotion } from 'motion/react'
 import { ReactLenis } from 'lenis/react'
 import { Curtain } from '@/components/Curtain'
-import { PointerContext, type Pointer } from '@/hooks/usePointer'
+import { PointerContext, useFinePointer, type Pointer } from '@/hooks/usePointer'
 import { Shapes } from '@/components/Shapes'
 import TargetCursor from '@/components/TargetCursor'
 import { Hero } from '@/sections/Hero'
@@ -16,6 +16,7 @@ import { Footer } from '@/sections/Footer'
 export default function App() {
   const pointer = useRef<Pointer>({ x: 0, y: 0, active: false })
   const reduced = useReducedMotion()
+  const fine = useFinePointer()
 
   // one listener for the whole page — the hero ripple, the hero face and the
   // project trailer all read this ref
@@ -23,7 +24,10 @@ export default function App() {
     const move = (e: PointerEvent) => {
       pointer.current.x = e.clientX
       pointer.current.y = e.clientY
-      pointer.current.active = true
+      // a touch sets the pointer down once and leaves it there, so treating it
+      // as a live cursor freezes every bloub staring at wherever you last
+      // tapped. Only a device that actually hovers counts as watching.
+      pointer.current.active = e.pointerType !== 'touch'
     }
     const leave = () => {
       pointer.current.active = false
@@ -58,12 +62,14 @@ export default function App() {
         {/* Replaces the bloub cursor companion — one thing may follow the
             pointer, not two. Targeting every link and button by selector
             rather than a hand-applied class, so new interactive elements are
-            picked up without anyone remembering to mark them. Not mounted
-            under reduced motion: it spins continuously, and it hides the
-            native cursor. */}
-        {!reduced && (
+            picked up without anyone remembering to mark them. Opted out of
+            with `data-cursor-plain`, which the hero bloub uses — bracketing a
+            700px ball is not a pointer hint. Not mounted under reduced motion
+            (it spins continuously and hides the native cursor) nor on a coarse
+            pointer, where there is no cursor to replace. */}
+        {!reduced && fine && (
           <TargetCursor
-            targetSelector="a[href], button"
+            targetSelector="a[href], button:not([data-cursor-plain])"
             spinDuration={3}
             cursorColor="var(--fg)"
           />

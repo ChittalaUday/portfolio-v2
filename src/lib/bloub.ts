@@ -6,7 +6,9 @@
  * explicit that tidying them breaks the resemblance. Verified traps kept intact:
  *
  *  - the body is a PERFECT CIRCLE, not a squircle (radial deviation < 0.7%),
- *    and the entrance spin only works on a circle
+ *    and the entrance spin only works on a circle — so the circle stays the
+ *    resting silhouette that the spin lands on, and `lib/shape.ts` only ever
+ *    morphs AWAY from it once the face has arrived
  *  - the eyes lean `\`, never `/`
  *  - transitions are exponential ease-outs; the body never overshoots, and
  *    there is deliberately no spring engine
@@ -14,6 +16,8 @@
  *
  * Pure — no DOM — so the sphere model can be checked in `bloub.test.ts`.
  */
+
+import { minRadiusOver } from './shape.ts'
 
 export const TAU = Math.PI * 2
 export const clamp = (v: number, lo = 0, hi = 1) => (v < lo ? lo : v > hi ? hi : v)
@@ -268,6 +272,26 @@ export const EXPRESSIONS: Record<string, Expression> = {
   curieux: { split: 16.5, roll: -15, eyes: [eye(0.24, 0.46, -8), eye(0.2, 0.38, -8)] },
 }
 
+/** Catalogue order, so a cycle can index into it. `neutre` is first. */
+export const EXPRESSION_IDS = Object.keys(EXPRESSIONS)
+
+/**
+ * Morph between two expressions.
+ *
+ * Same rule as the silhouette: everything is interpolated, so a change of mood
+ * is a movement rather than a cut. Upstream blends the same fields, and for the
+ * same reason — the eyes must never jump.
+ */
+export function blendExpression(a: Expression, b: Expression, t: number): Expression {
+  const l = (x: number, y: number) => x + (y - x) * t
+  const mix = (i: 0 | 1): EyeCfg => ({
+    w: l(a.eyes[i].w, b.eyes[i].w),
+    h: l(a.eyes[i].h, b.eyes[i].h),
+    tilt: l(a.eyes[i].tilt, b.eyes[i].tilt),
+  })
+  return { split: l(a.split, b.split), roll: l(a.roll, b.roll), eyes: [mix(0), mix(1)] }
+}
+
 /* ─────────────────────── follow gaze (for small marks) ────────────────── */
 
 /**
@@ -311,12 +335,31 @@ const r2 = (v: number) => Math.round(v * 100) / 100
  * applied AFTER that — it is a vertical squash on screen, not a shrink along
  * the capsule's own axis.
  */
-export function renderEyes(expr: Expression, gaze: HeadGaze, R: number, lid = 1): (RenderedEye | null)[] {
+export function renderEyes(
+  expr: Expression,
+  gaze: HeadGaze,
+  R: number,
+  lid = 1,
+  /**
+   * Body profile, when the silhouette is no longer a circle. The eye is brought
+   * back pro rata of the narrowest radius across the arc it covers — without it
+   * the eye leaves the outline and the mask crops it. See `minRadiusOver`.
+   */
+  radii?: number[],
+  /** Idle drift of the body, in viewBox units; the eyes ride along with it. */
+  ox = 0,
+  oy = 0,
+): (RenderedEye | null)[] {
   const poses = eyePoses(gaze, R, expr.split)
   const k = blinkScale(lid)
   return poses.map((e, i) => {
     if (e.depth <= 0.02) return null
     const cfg = expr.eyes[i]!
+    // the eye covers an arc, not a direction: half the angle it subtends from
+    // the centre, taken on its largest extent so a tilt cannot widen it further
+    const dist = Math.hypot(e.x, e.y)
+    const half = dist > 1 ? Math.atan2((Math.max(cfg.w, cfg.h) * R) / 2, dist) : 0
+    const fit = radii ? minRadiusOver(radii, Math.atan2(e.y, e.x), half) : 1
     const phi = (cfg.tilt * Math.PI) / 180
     const cp = Math.cos(phi)
     const sp = Math.sin(phi)
@@ -326,7 +369,7 @@ export function renderEyes(expr: Expression, gaze: HeadGaze, R: number, lid = 1)
     const cy = -e.b * sp + e.d * cp
     return {
       d: capsulePath(cfg.w * R, cfg.h * R),
-      matrix: `matrix(${r2(ax)},${r2(ay * k)},${r2(cx)},${r2(cy * k)},${r2(e.x)},${r2(e.y)})`,
+      matrix: `matrix(${r2(ax)},${r2(ay * k)},${r2(cx)},${r2(cy * k)},${r2(e.x * fit + ox)},${r2(e.y * fit + oy)})`,
       opacity: clamp(e.depth / 0.12),
     }
   })

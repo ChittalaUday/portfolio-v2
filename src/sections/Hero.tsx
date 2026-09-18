@@ -119,22 +119,6 @@ export function Hero() {
       aria-labelledby="hero-title"
       className="relative flex min-h-[100svh] flex-col justify-between overflow-hidden px-[clamp(1.25rem,5vw,5rem)] pt-32 pb-8"
     >
-      {/* the face is the exact inverse of the ground: paper fill on ink, with
-          the eyes knocked out so the ink shows through them */}
-      <motion.div
-        {...appear}
-        className="pointer-events-none absolute top-1/2 right-0 -z-0 hidden -translate-y-1/2 lg:block"
-      >
-        <BloubFace
-        // one variable drives both the size and the bleed: `right` is minus a
-        // quarter of the width, so exactly 3/4 of the ball stays on screen at
-        // every viewport — including past the clamp's ceiling, where a fixed
-        // vw offset would drift.
-        style={{ '--bloub': 'clamp(360px, 42vw, 720px)' } as React.CSSProperties}
-          className="relative right-[calc(var(--bloub)*-0.25)] block h-[var(--bloub)] w-[var(--bloub)] text-paper"
-        />
-      </motion.div>
-
       <motion.p {...appear} className="relative z-10 mono-label text-fg-muted">
         {ME.location} · {ME.status}
       </motion.p>
@@ -188,6 +172,28 @@ export function Hero() {
         <a href="#about" className="transition-colors hover:text-signal">
           Scroll ↓
         </a>
+      </motion.div>
+
+      {/* The face is the exact inverse of the ground: paper fill on ink, with
+          the eyes knocked out so the ink shows through them. It is a button —
+          clicking or tapping morphs it to the next silhouette.
+
+          `--bloub` drives both the size and the bleed, so the same proportion
+          of the ball stays on screen at every viewport, including past the
+          clamp's ceiling where a fixed vw offset would drift.
+
+          Two placements, and the mobile one is NOT the desktop one nudged. Wide
+          enough and it sits against the right edge with a quarter of it past
+          the fold, absolutely placed, behind the headline. Narrow, there is no
+          room beside the headline, so it becomes the last element of the column
+          and bleeds off the bottom edge — which `overflow-hidden` crops. Laying
+          it out rather than pinning it is what keeps a near-white ball from
+          landing under the grey clock row, where neither would be readable. */}
+      <motion.div
+        {...appear}
+        className="relative z-0 mt-6 -mb-[calc(var(--bloub)*0.45)] self-center [--bloub:clamp(180px,52vw,320px)] lg:absolute lg:top-1/2 lg:right-0 lg:m-0 lg:self-auto lg:[--bloub:clamp(360px,42vw,720px)] lg:[translate:0_-50%]"
+      >
+        <BloubFace className="size-[var(--bloub)] text-paper lg:relative lg:right-[calc(var(--bloub)*-0.25)]" />
       </motion.div>
     </section>
   )
