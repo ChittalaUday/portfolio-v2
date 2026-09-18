@@ -2,12 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Slug } from '@/components/SectionHead'
 import { usePointer } from '@/hooks/usePointer'
-import { PROJECTS, type Project } from '@/lib/content'
+import { WORK, type Work } from '@/lib/content'
+
+/** Section gutter, repeated so the rows can bleed past it and fill edge to
+ *  edge on hover. */
+const GUTTER = 'clamp(1.25rem,5vw,5rem)'
 
 /** Duotone plate standing in for a real screenshot. Deterministic per
- *  project so it reads as art direction rather than a missing asset. */
-function Plate({ project }: { project: Project }) {
-  const hue = 106 + Number(project.index) * 14
+ *  item so it reads as art direction rather than a missing asset. */
+function Plate({ item }: { item: Work }) {
+  const hue = 106 + Number(item.index) * 14
   return (
     <div
       className="size-full"
@@ -18,14 +22,75 @@ function Plate({ project }: { project: Project }) {
   )
 }
 
-/** Thumbnail that trails the cursor, rotating with pointer velocity. */
-function Trailer({ project }: { project: Project | null }) {
+/** The viewport the framed site believes it has. Scaled down to the preview
+ *  width, so a desktop layout arrives as a desktop layout rather than the
+ *  mobile breakpoint of a 360px frame. */
+const FRAME = { w: 1280, h: 800 }
+
+/** One preview box for everything — a site frame, a phone screenshot and the
+ *  fallback plate all land in the same 16:10. A still that is the wrong shape
+ *  is covered and cropped rather than resizing the box under the cursor. */
+const SIZE = { w: 360, h: 225 }
+
+/**
+ * What sits behind the cursor: the real site in a frame, or the app's own
+ * store artwork. The plate stays underneath both so the box is never blank
+ * while a third-party site loads, and never empty for the two items that
+ * have nothing to show yet.
+ *
+ * ponytail: the frame remounts on every hover, so a site reloads each time.
+ * Cache the mounted iframes if the reload flicker ever reads as a bug.
+ */
+function Preview({ item, w }: { item: Work; w: number }) {
+  const [ready, setReady] = useState(false)
+  const p = item.preview
+  const fade = {
+    opacity: ready ? 1 : 0,
+    transition: 'opacity 260ms cubic-bezier(0.16,1,0.3,1)',
+  } as const
+
+  return (
+    <div className="relative size-full bg-ink">
+      <Plate item={item} />
+      {p?.kind === 'shot' && (
+        <img
+          src={p.src}
+          alt=""
+          onLoad={() => setReady(true)}
+          className="absolute inset-0 size-full object-cover object-top"
+          style={fade}
+        />
+      )}
+      {p?.kind === 'site' && (
+        <iframe
+          src={p.src}
+          title=""
+          aria-hidden="true"
+          tabIndex={-1}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          /* third-party origins, so `allow-same-origin` only lets each site be
+             itself — it cannot reach this document across origins. Without
+             `allow-scripts` the two SPAs among them render a blank page. */
+          sandbox="allow-scripts allow-same-origin"
+          onLoad={() => setReady(true)}
+          className="absolute top-0 left-0 origin-top-left border-0"
+          style={{ ...fade, width: FRAME.w, height: FRAME.h, transform: `scale(${w / FRAME.w})` }}
+        />
+      )}
+    </div>
+  )
+}
+
+/** Preview that trails the cursor, rotating with pointer velocity. */
+function Trailer({ item }: { item: Work | null }) {
   const pointer = usePointer()
   const el = useRef<HTMLDivElement>(null)
   const reduced = useReducedMotion()
+  const { w, h } = SIZE
 
   useEffect(() => {
-    if (reduced || !pointer || !project) return
+    if (reduced || !pointer || !item) return
     let x = pointer.current.x
     let y = pointer.current.y
     let prev = x
@@ -37,19 +102,22 @@ function Trailer({ project }: { project: Project | null }) {
       const vel = Math.max(-6, Math.min(6, (x - prev) * 0.6))
       prev = x
       if (el.current) {
-        el.current.style.transform = `translate3d(${x + 28}px, ${y - 110}px, 0) rotate(${vel}deg)`
+        // centred on the cursor, but kept inside the viewport — a row near the
+        // top or bottom edge would otherwise hang the preview half off-screen
+        const top = Math.min(Math.max(y - h / 2, 12), window.innerHeight - h - 12)
+        el.current.style.transform = `translate3d(${x + 28}px, ${top}px, 0) rotate(${vel}deg)`
       }
       frame = requestAnimationFrame(tick)
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [pointer, project, reduced])
+  }, [pointer, item, reduced, h])
 
   if (reduced) return null
 
   return (
     <AnimatePresence>
-      {project && (
+      {item && (
         <div
           ref={el}
           aria-hidden="true"
@@ -60,10 +128,10 @@ function Trailer({ project }: { project: Project | null }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="h-[220px] w-[320px] overflow-hidden"
-            style={{ clipPath: 'url(#clip-squircle)' }}
+            className="overflow-hidden"
+            style={{ width: w, height: h, clipPath: 'url(#clip-squircle)' }}
           >
-            <Plate project={project} />
+            <Preview item={item} w={w} />
           </motion.div>
         </div>
       )}
@@ -71,9 +139,93 @@ function Trailer({ project }: { project: Project | null }) {
   )
 }
 
+/**
+ * One row of the run.
+ *
+ * An anchor when there is somewhere to go, a plain div when there is not —
+ * an unlisted internal app and an unbuilt one are not links, and dressing
+ * them as links is the lie the old accordion told by making every row look
+ * identically clickable.
+ *
+ * Hover fills the row to ink and inverts the type, which is what the spec
+ * asked for and also the only ground where `--signal` may carry text:
+ * signal on paper measures 1.38:1.
+ */
+function Row({
+  item,
+  dimmed,
+  onEnter,
+}: {
+  item: Work
+  dimmed: boolean
+  onEnter: () => void
+}) {
+  const live = Boolean(item.href)
+  const Tag = live ? 'a' : 'div'
+  return (
+    <li className="border-b border-current/15">
+      <Tag
+        {...(live ? { href: item.href, target: '_blank', rel: 'noreferrer' } : {})}
+        onMouseEnter={onEnter}
+        className={`group flex flex-col gap-y-2 py-[clamp(1.5rem,3.5vw,2.25rem)] transition-[background-color,color,opacity] duration-200 sm:flex-row sm:items-baseline sm:gap-8 ${
+          live ? 'hover:bg-ink hover:text-fg' : 'cursor-default'
+        }`}
+        style={{
+          opacity: dimmed ? 0.35 : 1,
+          paddingInline: GUTTER,
+          marginInline: `calc(${GUTTER} * -1)`,
+        }}
+      >
+        <span
+          className={`mono-label w-6 shrink-0 opacity-60 transition-colors ${live ? 'group-hover:text-signal group-hover:opacity-100' : ''}`}
+        >
+          {item.index}
+        </span>
+
+        <span className="flex-1">
+          <span className="block text-[clamp(1.5rem,4vw,2.75rem)] leading-none tracking-[-0.03em]">
+            {item.name}
+          </span>
+          {/* the one line that used to be a click away. A description hidden
+              behind a disclosure is a description nobody reads. */}
+          <span className="mt-2 block max-w-[54ch] text-sm leading-[1.55] opacity-65">
+            {item.blurb}
+          </span>
+        </span>
+
+        <span className="mono-label hidden w-48 shrink-0 truncate opacity-60 lg:block">
+          {item.kind}
+        </span>
+
+        {/* names the destination instead of a bare arrow, so the row says
+            where it goes before it is clicked */}
+        <span className="mono-label flex w-full shrink-0 items-baseline justify-between gap-2 opacity-60 sm:w-64 sm:justify-end">
+          <span className="truncate">{item.dest}</span>
+          {/* the arrow is the affordance, so the rows that go nowhere do not
+              get one — the slot stays, so the column edge does not go ragged */}
+          <span
+            aria-hidden="true"
+            className={`font-mono w-3 shrink-0 text-right ${live ? 'transition-transform duration-200 group-hover:translate-x-1' : ''}`}
+          >
+            {live ? '↗' : ''}
+          </span>
+        </span>
+      </Tag>
+    </li>
+  )
+}
+
 export function Projects() {
-  const [open, setOpen] = useState<string | null>(null)
-  const [hovered, setHovered] = useState<Project | null>(null)
+  const [hovered, setHovered] = useState<Work | null>(null)
+  const reduced = useReducedMotion()
+  const rise = reduced
+    ? {}
+    : {
+        initial: { y: 20, opacity: 0 },
+        whileInView: { y: 0, opacity: 1 },
+        viewport: { once: true, margin: '-12%' },
+        transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
+      }
 
   return (
     <section
@@ -87,89 +239,43 @@ export function Projects() {
         id="work-title"
         className="mb-16 max-w-[20ch] text-[clamp(2rem,5vw,4rem)] leading-[0.94] tracking-[-0.03em]"
       >
-        Six things worth showing
+        Three apps, three sites, one in build
       </h2>
 
-      <ul className="border-t border-current/15">
-        {PROJECTS.map((p) => {
-          const isOpen = open === p.index
-          const dimmed = hovered !== null && hovered.index !== p.index
-          return (
-            <li key={p.index} className="border-b border-current/15">
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                onClick={() => setOpen(isOpen ? null : p.index)}
-                onMouseEnter={() => setHovered(p)}
-                className="group flex w-full items-baseline gap-4 py-[clamp(1.5rem,3.5vw,2.5rem)] text-left transition-opacity duration-200 sm:gap-8"
-                style={{ opacity: dimmed ? 0.35 : 1 }}
-              >
-                <span className="mono-label w-6 shrink-0 transition-colors group-hover:text-signal">
-                  {p.index}
-                </span>
-                <span className="flex-1 text-[clamp(1.5rem,4vw,2.75rem)] leading-none tracking-[-0.03em]">
-                  {p.name}
-                </span>
-                <span className="mono-label hidden w-56 shrink-0 truncate whitespace-nowrap opacity-60 sm:block">{p.kind}</span>
-                <span className="mono-label w-10 shrink-0 text-right opacity-60">{p.year}</span>
-                <span
-                  aria-hidden="true"
-                  className="font-mono w-4 shrink-0 text-right transition-transform duration-200 group-hover:translate-x-1"
-                >
-                  {isOpen ? '↑' : '→'}
-                </span>
-              </button>
+      {WORK.map((group, gi) => (
+        <motion.div key={group.band} {...rise} className={gi ? 'mt-20' : ''}>
+          {/* The band carried its own hairline, which landed a few pixels under
+              the previous band's closing rule and read as a double line. It
+              has none now: the space above it and the marker beside it do the
+              separating, and the only rule at a boundary is the one the last
+              row already draws. */}
+          <h3 className="mono-label flex items-baseline justify-between gap-4 pb-5">
+            <span className="flex items-center gap-2.5">
+              <span aria-hidden="true" className="size-1.5 shrink-0 bg-current" />
+              {group.band}
+            </span>
+            {/* the index range, not a count — it ties the band to the numbers
+                running down the left edge */}
+            <span className="opacity-50">
+              {group.items.length > 1
+                ? `${group.items[0]!.index}—${group.items[group.items.length - 1]!.index}`
+                : group.items[0]!.index}
+            </span>
+          </h3>
+          <ul>
+            {group.items.map((item) => (
+              <Row
+                key={item.index}
+                item={item}
+                dimmed={hovered !== null && hovered.index !== item.index}
+                onEnter={() => setHovered(item)}
+              />
+            ))}
+          </ul>
+        </motion.div>
+      ))}
 
-              <AnimatePresence initial={false}>
-                {isOpen && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 200, damping: 26 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="grid gap-8 pb-10 lg:grid-cols-12">
-                      {/* inline on touch — there is no hover to trail */}
-                      <div
-                        className="aspect-[16/11] w-full overflow-hidden lg:col-span-4 [@media(pointer:fine)]:lg:hidden"
-                        style={{ clipPath: 'url(#clip-squircle)' }}
-                      >
-                        <Plate project={p} />
-                      </div>
-                      <div className="lg:col-span-6">
-                        <p className="max-w-[52ch] text-base leading-[1.6] opacity-70">{p.blurb}</p>
-                      </div>
-                      <div className="lg:col-span-3 lg:col-start-10">
-                        <p className="mono-label mb-3 opacity-60">Built with</p>
-                        <ul className="mb-6 space-y-1 text-sm">
-                          {p.tech.map((t) => (
-                            <li key={t}>{t}</li>
-                          ))}
-                        </ul>
-                        <div className="mono-label flex gap-4">
-                          {p.live && (
-                            <a href={p.live} className="hover:text-signal">
-                              Live ↗
-                            </a>
-                          )}
-                          {p.source && (
-                            <a href={p.source} className="hover:text-signal">
-                              Source ↗
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </li>
-          )
-        })}
-      </ul>
-
-      <Trailer project={open ? null : hovered} />
+      <Trailer item={hovered} />
     </section>
   )
 }

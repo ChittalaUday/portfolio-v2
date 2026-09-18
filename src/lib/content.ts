@@ -1,3 +1,7 @@
+import dcsSnap from '@/assets/dcs-snap.jpg'
+import infestsnap from '@/assets/infestsnap.jpg'
+import onmog from '@/assets/onmog.jpg'
+
 export const ME = {
   name: 'Uday Chittala',
   role: 'Full-stack engineer',
@@ -59,80 +63,111 @@ export const STACK = [
   },
 ] as const
 
-export type Project = {
+/** What the hover preview shows.
+ *
+ *  `site` is a live frame of the real thing. Two of the three client sites
+ *  send no `X-Frame-Options` and no `frame-ancestors`, so they can be framed.
+ *  The ones that cannot — onmog.in is `DENY`, Play is `SAMEORIGIN` — ship a
+ *  `shot` instead: a still of the same page, or the app's own store artwork. */
+export type Preview = {
+  kind: 'site' | 'shot'
+  src: string
+}
+
+export type Work = {
   index: string
   name: string
   kind: string
-  year: string
   blurb: string
-  tech: string[]
-  live?: string
-  source?: string
+  /** where the row goes. Named, not a bare arrow — the destination is the
+   *  single thing a visitor wants to know before clicking. */
+  dest: string
+  href?: string
+  preview?: Preview
 }
 
-export const PROJECTS: Project[] = [
+/** Work, banded by what kind of thing it is. The band is the fast read:
+ *  shipped apps, client sites, and the one that is not out yet. */
+export const WORK: { band: string; items: Work[] }[] = [
   {
-    index: '01',
-    name: 'Ledger',
-    kind: 'Fintech dashboard',
-    year: '2026',
-    blurb:
-      'Reconciliation tooling for a payments team drowning in spreadsheets. The hard part was not the maths — it was making a 40-column table readable, and letting an analyst undo a bad import without a support ticket.',
-    tech: ['React', 'TypeScript', 'Postgres', 'FastAPI'],
-    live: '#',
-    source: '#',
+    band: 'Mobile apps',
+    items: [
+      {
+        index: '01',
+        name: 'DCS Snap',
+        kind: 'Android · Niruthi',
+        blurb:
+          'Field teams collect ground-level crop data and run digital crop surveys from a phone.',
+        dest: 'Google Play',
+        href: 'https://play.google.com/store/apps/details?id=com.niruthi.dcssnap',
+        preview: { kind: 'shot', src: dcsSnap },
+      },
+      {
+        index: '02',
+        name: 'Infestsnap',
+        kind: 'Android · Niruthi',
+        blurb:
+          'Weekly crop-infestation forecasts, weather insight and field reporting for crop advisors.',
+        dest: 'Google Play',
+        href: 'https://play.google.com/store/apps/details?id=com.infestsnapv3',
+        preview: { kind: 'shot', src: infestsnap },
+      },
+      {
+        index: '03',
+        name: 'Asset Management',
+        kind: 'Android · Niruthi',
+        blurb: 'Asset tracking built for internal teams rather than the store.',
+        dest: 'Internal · unlisted',
+      },
+    ],
   },
   {
-    index: '02',
-    name: 'Atlas',
-    kind: 'Design system',
-    year: '2025',
-    blurb:
-      'Forty-odd components and the tokens under them, adopted by four product teams. Shipped with codemods, because a design system nobody can migrate to is a styleguide.',
-    tech: ['React', 'Tailwind', 'Radix', 'Storybook'],
-    live: '#',
-    source: '#',
+    band: 'Freelance web',
+    items: [
+      {
+        index: '04',
+        name: 'Dharani Life Sciences',
+        kind: 'Product site',
+        blurb:
+          'Site for the first rapid test kit that reads snake venom — hemotoxic or neurotoxic — in twenty minutes.',
+        dest: 'dharanilifesciences.com',
+        href: 'https://www.dharanilifesciences.com/',
+        preview: { kind: 'site', src: 'https://www.dharanilifesciences.com/' },
+      },
+      {
+        index: '05',
+        name: 'Onmog Softsol',
+        kind: 'Studio site',
+        blurb:
+          'Studio site for a multidisciplinary tech firm — staffing, app and web work, payroll, rail signalling.',
+        dest: 'onmog.in',
+        href: 'https://www.onmog.in/',
+        // the only client site that sets `X-Frame-Options: DENY`, so it is a
+        // still of the real page rather than a live frame of it
+        preview: { kind: 'shot', src: onmog },
+      },
+      {
+        index: '06',
+        name: 'Prodigy HRM',
+        kind: 'Web platform',
+        blurb: 'HR platform front end — leave, recruitment, onboarding and compliance in one place.',
+        dest: 'prodigyhrm.com',
+        href: 'https://www.prodigyhrm.com/',
+        preview: { kind: 'site', src: 'https://www.prodigyhrm.com/' },
+      },
+    ],
   },
   {
-    index: '03',
-    name: 'Signal',
-    kind: 'Realtime analytics',
-    year: '2025',
-    blurb:
-      'Event pipeline and the dashboard on top of it, from ingest to chart. Handles roughly 12k events a second on three boxes, which is less impressive than it sounds and took longer than it should have.',
-    tech: ['Go', 'ClickHouse', 'React', 'WebSockets'],
-    live: '#',
-  },
-  {
-    index: '04',
-    name: 'Harbour',
-    kind: 'Internal platform',
-    year: '2024',
-    blurb:
-      'Self-service deploys for engineers who did not want to learn Terraform. Cut the median time-to-staging from two days to eleven minutes, mostly by deleting steps rather than automating them.',
-    tech: ['TypeScript', 'AWS', 'Docker', 'Terraform'],
-    source: '#',
-  },
-  {
-    index: '05',
-    name: 'Quarry',
-    kind: 'Search',
-    year: '2024',
-    blurb:
-      'Full-text and vector search over a decade of internal documents. The retrieval was straightforward; making the results feel trustworthy was not.',
-    tech: ['Python', 'Postgres', 'pgvector', 'React'],
-    live: '#',
-    source: '#',
-  },
-  {
-    index: '06',
-    name: 'Kiln',
-    kind: 'Developer tool',
-    year: '2023',
-    blurb:
-      'A CLI that turns an OpenAPI spec into typed clients nobody has to hand-edit. Small, boring, and still in use, which is the highest compliment a tool gets.',
-    tech: ['Go', 'OpenAPI', 'CI'],
-    source: '#',
+    band: 'In build',
+    items: [
+      {
+        index: '07',
+        name: 'Cable operator platform',
+        kind: 'Multi-tenant',
+        blurb: 'One deployment, many operators — each tenant isolated from the next.',
+        dest: 'Coming soon',
+      },
+    ],
   },
 ]
 
