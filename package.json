@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "api": "node server/index.mjs",
+    "test": "node --test src/lib/*.test.ts server/*.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

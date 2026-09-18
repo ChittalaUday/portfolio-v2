@@ -5,70 +5,164 @@ import onmog from '@/assets/onmog.jpg'
 export const ME = {
   name: 'Uday Chittala',
   role: 'Full-stack engineer',
-  email: 'uday.kumar@niruthi.com',
+  email: 'chitalauday@gmail.com',
   location: 'Hyderabad, IN',
   tz: 'Asia/Kolkata',
-  status: 'available for work',
+  status: 'open to work',
+  company: 'Niruthi Climate & Ecosystems',
+  companyUrl: 'https://niruthi.com',
+  github: 'https://github.com/ChittalaUday',
+  linkedin: 'https://www.linkedin.com/in/uday-kumar-chittala/',
 } as const
 
 export const ABOUT = {
-  lede: 'I build product surfaces that hold up under real traffic — the interface, the API behind it, and the boring parts in between.',
-  body: 'Most of my work is the unglamorous middle: turning a design that only exists as a screenshot into something typed, tested and shipped. I care about the seams — how a list behaves at ten thousand rows, what the empty state says, whether the thing still works on a bad connection.',
+  lede: 'I came to this the long way round — a polytechnic diploma, then a degree I finished while already shipping — and what stuck is how good it feels to watch someone actually use the thing.',
+  body: 'Right now that means field software at Niruthi — apps that go out to survey teams and crop advisors, people standing in a field rather than sitting at a desk. That changes how you build: the screen has to make sense in daylight, the data has to survive the trip back, and nobody out there files a bug report, they just quietly stop using it. The rest has been a wide net on purpose — Python automation, a native Android app in Java, three client sites, and right now a weather bot that has to work out what you are actually asking before it can answer. Two years of shipping is not long, and I would rather say so than dress it up.',
   facts: [
+    { k: 'Now', v: 'Associate Software Engineer, Niruthi' },
+    { k: 'Studied', v: 'B.Tech, Aditya · Diploma, Andhra Polytechnic' },
+    { k: 'Since', v: 'Writing code since 2020, shipping since 2022' },
+    { k: 'Focus', v: 'React Native · TypeScript · Python' },
     { k: 'Location', v: 'Hyderabad, IN' },
-    { k: 'Focus', v: 'Product engineering · React · TypeScript' },
-    { k: 'Writing', v: 'Occasionally, about interfaces' },
   ],
 } as const
 
-/** Sections that get a bloub companion + nav entry. */
+/** Sections in page order. The index is the number each section prints. */
 export const SECTIONS = [
   { id: 'hero', index: '01', label: 'Hero' },
   { id: 'about', index: '02', label: 'About' },
   { id: 'stack', index: '03', label: 'Stack' },
   { id: 'work', index: '04', label: 'Work' },
-  { id: 'contact', index: '05', label: 'Contact' },
-  { id: 'footer', index: '06', label: '—' },
+  { id: 'path', index: '05', label: 'Path' },
+  { id: 'contact', index: '06', label: 'Contact' },
+  { id: 'footer', index: '07', label: '—' },
 ] as const
 
 export type SectionId = (typeof SECTIONS)[number]['id']
+
+export type Stop = {
+  period: string
+  role: string
+  org: string
+  href?: string
+  note: string
+  /** study reads differently from work, and the rail marks it differently */
+  kind: 'work' | 'study'
+  /** the one still running — it gets the live marker */
+  current?: boolean
+}
+
+/**
+ * Ordered by when each thing started, most recent first — so the rail never
+ * runs backwards. Study and work overlap by two years; the periods say so
+ * rather than the order trying to hide it.
+ */
+export const PATH: Stop[] = [
+  {
+    period: 'Jan 2026 — present',
+    role: 'Associate Software Engineer',
+    org: 'Niruthi Climate & Ecosystems',
+    href: 'https://niruthi.com',
+    note: 'Android apps for crop survey and pest forecasting, and the services behind them. Converted from the internship in January, with the degree still to finish.',
+    kind: 'work',
+    current: true,
+  },
+  {
+    period: 'Jul — Dec 2025',
+    role: 'Software Engineer Intern',
+    org: 'Niruthi Climate & Ecosystems',
+    href: 'https://niruthi.com',
+    note: 'Six months on the mobile stack — React Native, Expo, and the first production releases.',
+    kind: 'work',
+  },
+  {
+    period: '2023 — 2026',
+    role: 'B.Tech',
+    org: 'Aditya College of Engineering and Technology',
+    note: 'Lateral entry from the diploma, so three years rather than four. Graduated April 2026, by then already working full time.',
+    kind: 'study',
+  },
+  {
+    period: 'Aug 2022 — Jan 2023',
+    role: 'Intern',
+    org: 'Incrivelsoft',
+    href: 'https://incrivelsoft.com/',
+    note: 'Six months on web scraping and automation, plus a native Android app in Java for an internal health product.',
+    kind: 'work',
+  },
+  {
+    period: '2020 — 2023',
+    role: 'Diploma, Computer Engineering',
+    org: 'Andhra Polytechnic, Kakinada',
+    note: 'CME. Three years, and the route into the B.Tech.',
+    kind: 'study',
+  },
+]
 
 export const STACK = [
   {
     band: 'Languages',
     items: [
-      { name: 'TypeScript', note: '6 yrs · everything ships in it' },
-      { name: 'Python', note: '5 yrs · services and glue' },
+      { name: 'TypeScript', note: 'the default for everything' },
+      { name: 'JavaScript', note: 'where it is already the language' },
+      { name: 'Python', note: 'scraping, automation, AI work' },
+      { name: 'Kotlin', note: 'native Android' },
+      { name: 'Java', note: 'the Android work before Kotlin, and Spring' },
+      { name: 'Swift', note: 'native iOS' },
       { name: 'SQL', note: 'Postgres, mostly by hand' },
-      { name: 'Go', note: '2 yrs · when latency matters' },
     ],
   },
   {
-    band: 'Frameworks',
+    band: 'Mobile',
     items: [
-      { name: 'React', note: '6 yrs · 14 apps shipped' },
-      { name: 'Next.js', note: 'App Router since it was unstable' },
-      { name: 'Tailwind', note: 'v4, CSS-first tokens' },
-      { name: 'FastAPI', note: 'Default for anything Python' },
+      { name: 'React Native', note: 'two years · shipped to Play' },
+      { name: 'Expo', note: 'EAS build, update, the whole pipeline' },
+      { name: 'Android', note: 'Kotlin, when native is the answer' },
+      { name: 'iOS', note: 'Swift' },
     ],
   },
   {
-    band: 'Infrastructure',
+    band: 'Web',
     items: [
-      { name: 'Postgres', note: 'Constraints over app-layer checks' },
-      { name: 'Docker', note: 'Same image local and prod' },
-      { name: 'AWS', note: 'ECS, RDS, S3, not much else' },
-      { name: 'Vite', note: 'Build times measured in ms' },
+      { name: 'React', note: 'every front end I build' },
+      { name: 'Next.js', note: 'App Router' },
+      { name: 'Vite', note: 'including this site' },
+      { name: 'Fastify', note: 'default for a new service' },
+      { name: 'Express', note: 'when the ecosystem expects it' },
+    ],
+  },
+  {
+    band: 'AI coding',
+    items: [
+      { name: 'Claude', note: 'Claude Code, in the terminal' },
+      { name: 'Codex', note: 'the OpenAI agent CLI' },
+      { name: 'Hermes', note: 'in the rotation' },
+      { name: 'Antigravity', note: 'Google, agent-first IDE' },
+    ],
+  },
+  {
+    band: 'Data & infra',
+    items: [
+      { name: 'Postgres', note: 'Neon and Supabase' },
+      { name: 'Supabase', note: 'auth, storage, row-level security' },
+      { name: 'Firebase', note: 'auth and push on mobile' },
+      { name: 'Redis', note: 'cache and queues' },
+      { name: 'Kafka', note: 'event streams' },
+      { name: 'Git', note: 'and the review habits around it' },
     ],
   },
 ] as const
 
-/** What the hover preview shows.
- *
- *  `site` is a live frame of the real thing. Two of the three client sites
- *  send no `X-Frame-Options` and no `frame-ancestors`, so they can be framed.
- *  The ones that cannot — onmog.in is `DENY`, Play is `SAMEORIGIN` — ship a
- *  `shot` instead: a still of the same page, or the app's own store artwork. */
+/** Honest about the difference between what I ship and what I have only
+ *  practised. Kept out of the marquee for exactly that reason. */
+export const ALSO = {
+  label: 'Also',
+  items: [
+    'system design, the basics',
+    'Angular and Spring Boot, from college projects',
+  ],
+} as const
+
 export type Preview = {
   kind: 'site' | 'shot'
   src: string
@@ -162,6 +256,14 @@ export const WORK: { band: string; items: Work[] }[] = [
     items: [
       {
         index: '07',
+        name: 'Weather bot',
+        kind: 'Bot · AI',
+        blurb:
+          'Weather asked for in plain language. Intent classification works out what is actually being asked before anything goes looking for a forecast.',
+        dest: 'In progress',
+      },
+      {
+        index: '08',
         name: 'Cable operator platform',
         kind: 'Multi-tenant',
         blurb: 'One deployment, many operators — each tenant isolated from the next.',
@@ -172,7 +274,6 @@ export const WORK: { band: string; items: Work[] }[] = [
 ]
 
 export const SOCIALS = [
-  { id: 'github-icon', label: 'GitHub', href: '#' },
-  { id: 'x-icon', label: 'X', href: '#' },
-  { id: 'bluesky-icon', label: 'Bluesky', href: '#' },
+  { id: 'github-icon', label: 'GitHub', href: ME.github },
+  { id: 'linkedin-icon', label: 'LinkedIn', href: ME.linkedin },
 ] as const

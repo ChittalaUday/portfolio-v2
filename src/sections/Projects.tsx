@@ -155,10 +155,12 @@ function Row({
   item,
   dimmed,
   onEnter,
+  onLeave,
 }: {
   item: Work
   dimmed: boolean
   onEnter: () => void
+  onLeave: () => void
 }) {
   const live = Boolean(item.href)
   const Tag = live ? 'a' : 'div'
@@ -167,6 +169,7 @@ function Row({
       <Tag
         {...(live ? { href: item.href, target: '_blank', rel: 'noreferrer' } : {})}
         onMouseEnter={onEnter}
+        onMouseLeave={onLeave}
         className={`group flex flex-col gap-y-2 py-[clamp(1.5rem,3.5vw,2.25rem)] transition-[background-color,color,opacity] duration-200 sm:flex-row sm:items-baseline sm:gap-8 ${
           live ? 'hover:bg-ink hover:text-fg' : 'cursor-default'
         }`}
@@ -218,6 +221,26 @@ function Row({
 export function Projects() {
   const [hovered, setHovered] = useState<Work | null>(null)
   const reduced = useReducedMotion()
+  /**
+   * The preview follows the hovered row, so it has to be cleared by the row
+   * itself. Clearing only on the section's `mouseleave` left it stranded
+   * everywhere inside the section that is not a row — the heading, the band
+   * labels, the gaps between bands.
+   *
+   * The grace period is what makes row-to-row work: leaving A queues the
+   * clear, entering B cancels it, so the preview slides across instead of
+   * blinking out and reloading the frame in between.
+   */
+  const pending = useRef<number | undefined>(undefined)
+  const enter = (item: Work) => {
+    window.clearTimeout(pending.current)
+    setHovered(item)
+  }
+  const leave = () => {
+    window.clearTimeout(pending.current)
+    pending.current = window.setTimeout(() => setHovered(null), 60)
+  }
+  useEffect(() => () => window.clearTimeout(pending.current), [])
   const rise = reduced
     ? {}
     : {
@@ -232,14 +255,14 @@ export function Projects() {
       id="work"
       aria-labelledby="work-title"
       className="relative overflow-hidden bg-paper px-[clamp(1.25rem,5vw,5rem)] py-[clamp(6rem,14vh,12rem)] text-[oklch(0.145_0.008_62)]"
-      onMouseLeave={() => setHovered(null)}
+      onMouseLeave={leave}
     >
       <Slug index="04" label="Work" face="mefiant" className="mb-6" />
       <h2
         id="work-title"
         className="mb-16 max-w-[20ch] text-[clamp(2rem,5vw,4rem)] leading-[0.94] tracking-[-0.03em]"
       >
-        Three apps, three sites, one in build
+        Three apps, three sites, two in build
       </h2>
 
       {WORK.map((group, gi) => (
@@ -268,7 +291,8 @@ export function Projects() {
                 key={item.index}
                 item={item}
                 dimmed={hovered !== null && hovered.index !== item.index}
-                onEnter={() => setHovered(item)}
+                onEnter={() => enter(item)}
+                onLeave={leave}
               />
             ))}
           </ul>

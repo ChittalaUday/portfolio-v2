@@ -9,6 +9,7 @@ import { Hero } from '@/sections/Hero'
 import { About } from '@/sections/About'
 import { Stack } from '@/sections/Stack'
 import { Projects } from '@/sections/Projects'
+import { Path } from '@/sections/Path'
 import { Contact } from '@/sections/Contact'
 import { Footer } from '@/sections/Footer'
 
@@ -43,6 +44,7 @@ export default function App() {
         <About />
         <Stack />
         <Projects />
+        <Path />
         <Contact />
         <Footer />
       </main>

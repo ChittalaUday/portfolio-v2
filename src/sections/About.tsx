@@ -65,7 +65,7 @@ export function About() {
             />
           </motion.h2>
 
-          <motion.p {...rise} className="mb-16 max-w-[46ch] text-base leading-[1.6] opacity-70">
+          <motion.p {...rise} className="mb-16 max-w-[52ch] text-base leading-[1.7] opacity-70">
             {ABOUT.body}
           </motion.p>
 

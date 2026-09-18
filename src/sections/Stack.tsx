@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Slug } from '@/components/SectionHead'
-import { STACK } from '@/lib/content'
+import { ALSO, STACK } from '@/lib/content'
 
 /**
  * Technology names set as type, not a grid of logos. Twelve stroked
@@ -68,6 +68,14 @@ export function Stack() {
           </div>
         ))}
       </div>
+
+      {/* what I have practised, kept out of the marquee and said plainly —
+          the marquee is for what I reach for without thinking */}
+      <p className="mono-label mt-14 px-[clamp(1.25rem,5vw,5rem)] text-fg-muted">
+        <span className="text-fg">{ALSO.label}</span>
+        {' — '}
+        {ALSO.items.join(' · ')}
+      </p>
     </section>
   )
 }

@@ -13,6 +13,9 @@ export default defineConfig({
   ],
   server: {
     host: true,
+    // the contact API runs as its own process (npm run api). Proxying keeps
+    // the browser call same-origin in dev exactly as it is in production.
+    proxy: { '/api': 'http://localhost:8787' },
   },
   resolve: {
     alias: {

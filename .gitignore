@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# contact requests — local database, never committed
+contact.db
+contact.db-journal
