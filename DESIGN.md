@@ -523,6 +523,34 @@ Motion is the deliverable here, so it gets specified rather than improvised.
 | Project row | hover | ground `220ms`, thumbnail lerp `0.15`, rotate ±`6deg` from velocity |
 | Row expand | click | `height auto` spring `200/26` |
 | Contact rule | hover | `scaleX 0→1`, `340ms`, origin left |
+| Hero recede | `scrollY 0 → 100svh` | pinned; `rotateX 0→12`, `y 0→-70`, `opacity 1→0` by `0.82`, `transformPerspective 1400`, origin `50% 30%` |
+| Portrait turn | section in view | frame `rotateY ±7` / `rotateX ∓5`; photo drifts `±7%` inside its own clip at `scale 1.16` |
+| Stack lean | scroll velocity | `skewX ±7deg`, spring `320/48`, clamped — on a wrapper, never on `.marquee-track` |
+| Stack note | hover **or tap** | tap toggles, so the note is not hover-only |
+| Pinned preview | row crosses the reading band | coarse pointers only; `rootMargin -50%/-32%`, swap in from `rotateY -20`, `scale 0.94`, `420ms` |
+| Preview trailer | `pointermove` | banks: `rotateY vx*2.6`, `rotateX -vy*2`, `perspective(900px)` after the translate |
+| Path stops | `whileInView` once, `-12%` | `rotateX -22→0`, `z -90→0`, `620ms`, shared `perspective 1100` on the `ol`, origin `50% 0%` |
+| Bloub solid | always / drag / scroll | idle `13°/s` yaw, pitch `-17°` base `±10°` from viewport position, drag `0.42°/px` with a fling decaying over `0.9s` |
+
+### 3D — what it is allowed to be
+
+§1 rejects "floating 3D blobs" and that still holds. What is added is the other
+reading of depth: **real layers under `rotateX/Y/Z`, `perspective` and `origin`**
+— the primitive set a design tool exposes — applied to the geometry the site
+already owns. No renderer, no WebGL, no new dependency. `components/BloubSolid`
+is the site's own radial profile from `lib/shape.ts` sliced into fifteen
+contours along Z; the depth is made of the design system, not imported into it.
+
+Two mechanics that are easy to get wrong and are load-bearing here:
+
+- `perspective` as a **property** makes the element a containing block for every
+  fixed descendant, which would tear `TargetCursor` and the project trailer off
+  the viewport. Everything here uses the **function** — `transformPerspective` in
+  Motion, `perspective()` in a transform string — which does not.
+- `overflow: hidden` makes an element a **scroll container**, and a sticky child
+  sticks to its nearest scrolling ancestor — so a sticky element inside one
+  never moves. Sections that pin something use `overflow-x-clip`, which guards
+  the same horizontal bleed without creating a scrollport.
 
 Rules:
 - Nothing animates longer than `600ms` except the marquee and the cursor's spin.
@@ -670,6 +698,12 @@ disagreed with the spec above, the build is right and the reason is here.
 | `data/projects.ts` + `data/stack.ts` | one `lib/content.ts` | Two files for one import site. |
 | Project `kind` column | fixed `w-56 truncate` | Right-aligning the metadata as a group left the `kind` left edges ragged; `w-44` made "Realtime analytics" wrap and broke the row baseline. Rows now measure 124px each with columns locked at x=1024 / 1280. |
 | Brand marks from `icons.svg` | same, with baked fills stripped | The sprite's paths carried `fill="#08060d"`, which an outer `fill-current` cannot override — the marks were near-black on ink and invisible. |
+| Hero as an ordinary first section | pinned, with About scrolling over it | The page had no depth between sections and no sticky moment at all. Pinned only above `min-height: 520px` — a sticky box taller than the viewport holds its top at zero and hides its own bottom, which on a landscape phone would eat the clock row. |
+| Hero recede included `scale 0.9` | dropped; pitch and perspective only | The hero clips its own overflow, which is what crops the face's bleed, and the clip is applied **before** the transform. Shrinking the box dragged its right-hand clip edge inside the viewport and cut a hard vertical line through the face. |
+| — | `overflow-x-clip` on the hero/About wrapper | A pitched card's near edge projects **wider** than the viewport — measured 74px of horizontal document overflow at 1440, 19px at 390. The hero's own `overflow-hidden` cannot help: it clips children, not its own transformed box. |
+| Hero ripple plays once on touch, then rests | follows a held finger | The one-shot was a consolation prize. A touch is a cursor for as long as it is held, so `Pointer` gained `down` — kept separate from `active`, which the bloub faces read and which must stay false for touch or every face freezes staring at the last tap. |
+| Project previews are hover-only | a pinned plate driven by scroll position | A phone got **no** previews at all — not a reduced version, they did not exist there. Scroll position is the touch equivalent of a cursor. Needed an opaque full-bleed ground: pinned without one, the rows scroll *through* it and the caption lands on whichever row is underneath. |
+| — | `BloubSolid` in the footer | The footer was the one section with no motion. A contour stack rather than a rendered ball (§6). `touch-action: pan-y` so a finger scrolls the page vertically and turns the solid horizontally — no scroll hijacking. A base pitch of `-17°` is not styling: a contour stack seen square along its own axis is a bullseye, every layer concentric, with no depth cue at all. |
 | Recolour `favicon.svg` | replaced it | It was multi-colour template art (#863bff + #47bfff + #ede6ff); recolouring one value left the rest clashing. |
 
 Two checks live in the repo rather than in prose:

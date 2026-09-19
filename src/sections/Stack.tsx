@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { motion, useScroll, useSpring, useTransform, useVelocity } from 'motion/react'
 import { Slug } from '@/components/SectionHead'
 import { ALSO, STACK } from '@/lib/content'
 
@@ -10,11 +11,35 @@ import { ALSO, STACK } from '@/lib/content'
 export function Stack() {
   const [hovered, setHovered] = useState<string | null>(null)
 
+  /**
+   * The bands lean into the scroll.
+   *
+   * The marquee is a CSS animation and stays one — it is the section's
+   * perpetual motion and it must not stop when the page does. This is the
+   * layer on top: scroll velocity as a skew, so the type rakes over while you
+   * move and stands back up when you stop. Identical on a phone and a desktop,
+   * because a scroll is a scroll.
+   *
+   * Applied to a wrapper and not to `.marquee-track`: the track's `transform`
+   * belongs to the keyframes, and a second one on the same element would
+   * simply lose.
+   */
+  const { scrollY } = useScroll()
+  const velocity = useSpring(useVelocity(scrollY), { stiffness: 320, damping: 48 })
+  const lean = useTransform(velocity, [-2400, 2400], ['7deg', '-7deg'], { clamp: true })
+
+  /** Hover names the band on a desktop; a tap has to do it on a phone. */
+  const mark = (name: string) => ({
+    onMouseEnter: () => setHovered(name),
+    onMouseLeave: () => setHovered(null),
+    onClick: () => setHovered((h) => (h === name ? null : name)),
+  })
+
   return (
     <section
       id="stack"
       aria-labelledby="stack-title"
-      className="relative overflow-hidden border-t border-rule py-[clamp(6rem,14vh,12rem)]"
+      className="relative overflow-x-clip border-t border-rule py-[clamp(6rem,14vh,12rem)]"
     >
       <div className="mb-16 px-[clamp(1.25rem,5vw,5rem)]">
         <Slug index="03" label="Stack" face="confus" className="mb-6 text-fg-muted" />
@@ -29,7 +54,7 @@ export function Stack() {
             <p className="mono-label mb-5 px-[clamp(1.25rem,5vw,5rem)] text-fg-muted">
               {band.band}
             </p>
-            <div className="overflow-hidden" aria-hidden="true">
+            <motion.div style={{ skewX: lean }} className="overflow-hidden" aria-hidden="true">
               <div className="marquee-track" data-dir={bi % 2 ? 'right' : undefined}>
                 {/* two identical halves so -50% is seamless; each half is
                     repeated enough to overfill the widest viewport */}
@@ -39,9 +64,8 @@ export function Stack() {
                       band.items.map((it) => (
                         <span
                           key={`${it.name}-${rep}`}
-                          onMouseEnter={() => setHovered(it.name)}
-                          onMouseLeave={() => setHovered(null)}
-                          className="type-condensed flex shrink-0 cursor-default items-baseline gap-6 pr-10 text-[clamp(2rem,4.5vw,3.5rem)] leading-none tracking-[-0.02em] transition-colors duration-200"
+                          {...mark(it.name)}
+                          className="type-condensed flex shrink-0 cursor-pointer items-baseline gap-6 pr-10 text-[clamp(2rem,4.5vw,3.5rem)] leading-none tracking-[-0.02em] transition-colors duration-200"
                           style={{ color: hovered === it.name ? 'var(--signal)' : undefined }}
                         >
                           {it.name}
@@ -52,7 +76,7 @@ export function Stack() {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
             {/* real information, not a progress bar claiming 87% */}
             <p className="mono-label mt-5 h-3 px-[clamp(1.25rem,5vw,5rem)] text-signal">
               {band.items.find((i) => i.name === hovered)?.note ?? ''}

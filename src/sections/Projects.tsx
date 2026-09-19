@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from 'motion/react'
 import { Slug } from '@/components/SectionHead'
-import { usePointer } from '@/hooks/usePointer'
+import { useFinePointer, usePointer } from '@/hooks/usePointer'
 import { WORK, type Work } from '@/lib/content'
 
 /** Section gutter, repeated so the rows can bleed past it and fill edge to
@@ -93,19 +93,29 @@ function Trailer({ item }: { item: Work | null }) {
     if (reduced || !pointer || !item) return
     let x = pointer.current.x
     let y = pointer.current.y
-    let prev = x
+    let prevX = x
+    let prevY = y
     let frame = 0
     const tick = () => {
       const p = pointer.current
       x += (p.x - x) * 0.15
       y += (p.y - y) * 0.15
-      const vel = Math.max(-6, Math.min(6, (x - prev) * 0.6))
-      prev = x
+      const vx = Math.max(-6, Math.min(6, (x - prevX) * 0.6))
+      const vy = Math.max(-6, Math.min(6, (y - prevY) * 0.6))
+      prevX = x
+      prevY = y
       if (el.current) {
         // centred on the cursor, but kept inside the viewport — a row near the
         // top or bottom edge would otherwise hang the preview half off-screen
         const top = Math.min(Math.max(y - h / 2, 12), window.innerHeight - h - 12)
-        el.current.style.transform = `translate3d(${x + 28}px, ${top}px, 0) rotate(${vel}deg)`
+        // the plate BANKS now rather than rolling flat: yaw off horizontal
+        // velocity, pitch off vertical, with a little of the old roll left in.
+        // `perspective()` sits after the translate so it projects only the
+        // rotations — put first, it would distort the position as well.
+        el.current.style.transform =
+          `translate3d(${x + 28}px, ${top}px, 0) perspective(900px) ` +
+          `rotateY(${(vx * 2.6).toFixed(2)}deg) rotateX(${(-vy * 2).toFixed(2)}deg) ` +
+          `rotate(${(vx * 0.4).toFixed(2)}deg)`
       }
       frame = requestAnimationFrame(tick)
     }
@@ -140,6 +150,114 @@ function Trailer({ item }: { item: Work | null }) {
 }
 
 /**
+ * Which row is under the reading line.
+ *
+ * The trailer above is the desktop answer and it is hover-shaped, so a phone
+ * used to get NOTHING — not a reduced version of the previews, the previews
+ * simply did not exist there. Scroll position is the touch equivalent of a
+ * cursor: whatever row you have scrolled to is the row you are looking at.
+ *
+ * An IntersectionObserver rather than a scroll handler reading rects — the
+ * band is expressed as a `rootMargin` and the browser does the work off the
+ * main thread. Never cleared once set: between two rows nothing is in the
+ * band, and blanking the plate there would make it strobe as you scroll.
+ */
+function useRowInView(enabled: boolean, root: React.RefObject<HTMLElement | null>) {
+  const [index, setIndex] = useState<string | null>(null)
+  useEffect(() => {
+    const host = root.current
+    if (!enabled || !host) return
+    const seen = new Set<string>()
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.work
+          if (!id) continue
+          if (e.isIntersecting) seen.add(id)
+          else seen.delete(id)
+        }
+        // first in document order — the indices are zero-padded, so a plain
+        // sort is document order, and two rows in the band cannot flicker
+        const next = [...seen].sort()[0]
+        if (next) setIndex(next)
+      },
+      { rootMargin: '-50% 0px -32% 0px' },
+    )
+    host.querySelectorAll('[data-work]').forEach((r) => io.observe(r))
+    return () => io.disconnect()
+  }, [enabled, root])
+  return index
+}
+
+/**
+ * The preview, pinned to the top of the viewport while the list scrolls under
+ * it. The plate turns a few degrees across the section and the incoming item
+ * arrives out of depth, so the swap is a card being dealt rather than a
+ * crossfade — the same 3D vocabulary the trailer banks in.
+ *
+ * ponytail: the frame remounts on every swap, so a live site reloads each
+ * time — the same ceiling the trailer carries. Keep the mounted iframes if
+ * the reload flicker ever reads as a bug.
+ */
+function Pinned({ item, host }: { item: Work | null; host: React.RefObject<HTMLElement | null> }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [w, setW] = useState(0)
+  const { scrollYProgress } = useScroll({ target: host, offset: ['start start', 'end start'] })
+  const rotateX = useTransform(scrollYProgress, [0, 1], [7, -7])
+
+  // the iframe is scaled from a fixed 1280 frame, so it needs the real width
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setW(e!.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div
+      /* an opaque full-bleed ground, not a floating plate. Pinned, the rows
+         pass BEHIND this — without a ground they pass through it, and the
+         caption lands on top of whichever row happens to be under it. The
+         negative margin cancels the section gutter so the ground reaches both
+         edges, the way the rows already do on hover. */
+      className="sticky top-0 z-20 mb-10 bg-paper pt-3 pb-4"
+      style={{ paddingInline: GUTTER, marginInline: `calc(${GUTTER} * -1)` }}
+    >
+      <motion.div
+        ref={box}
+        aria-hidden="true"
+        style={{ transformPerspective: 1100, rotateX }}
+        className="relative aspect-[16/10] w-full overflow-hidden bg-ink"
+      >
+        {/* the same squircle the trailer is cut to, so the two readings of the
+            preview are one object shown two ways */}
+        <div className="absolute inset-0" style={{ clipPath: 'url(#clip-squircle)' }}>
+          {item && w > 0 && (
+            <motion.div
+              key={item.index}
+              initial={{ opacity: 0, rotateY: -20, scale: 0.94 }}
+              animate={{ opacity: 1, rotateY: 0, scale: 1 }}
+              transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+              style={{ transformPerspective: 900 }}
+              className="size-full"
+            >
+              <Preview item={item} w={w} />
+            </motion.div>
+          )}
+        </div>
+      </motion.div>
+      {/* names what is on the plate — without it the preview is a picture with
+          no caption, and the rows scroll past faster than the swap reads */}
+      <p className="mono-label mt-3 flex items-center gap-2.5 opacity-60">
+        <span aria-hidden="true" className="size-1.5 shrink-0 bg-signal" />
+        {item ? `${item.index} · ${item.name}` : 'Scroll the list'}
+      </p>
+    </div>
+  )
+}
+
+/**
  * One row of the run.
  *
  * An anchor when there is somewhere to go, a plain div when there is not —
@@ -165,7 +283,7 @@ function Row({
   const live = Boolean(item.href)
   const Tag = live ? 'a' : 'div'
   return (
-    <li className="border-b border-current/15">
+    <li data-work={item.index} className="border-b border-current/15">
       <Tag
         {...(live ? { href: item.href, target: '_blank', rel: 'noreferrer' } : {})}
         onMouseEnter={onEnter}
@@ -221,6 +339,12 @@ function Row({
 export function Projects() {
   const [hovered, setHovered] = useState<Work | null>(null)
   const reduced = useReducedMotion()
+  const fine = useFinePointer()
+  const list = useRef<HTMLDivElement>(null)
+  // the pinned plate is the coarse-pointer reading of the trailer, so exactly
+  // one of the two is ever live — and the observer does not run at all on a
+  // machine that has a cursor
+  const inView = useRowInView(!fine, list)
   /**
    * The preview follows the hovered row, so it has to be cleared by the row
    * itself. Clearing only on the section's `mouseleave` left it stranded
@@ -254,7 +378,11 @@ export function Projects() {
     <section
       id="work"
       aria-labelledby="work-title"
-      className="relative overflow-hidden bg-paper px-[clamp(1.25rem,5vw,5rem)] py-[clamp(6rem,14vh,12rem)] text-[oklch(0.145_0.008_62)]"
+      /* `overflow-x-clip`, not `overflow-hidden`: hidden makes this a scroll
+         container, and a sticky child sticks to its nearest scrolling ancestor
+         — so the pinned preview below would never move. `clip` guards the same
+         horizontal bleed without creating one. */
+      className="relative overflow-x-clip bg-paper px-[clamp(1.25rem,5vw,5rem)] py-[clamp(6rem,14vh,12rem)] text-[oklch(0.145_0.008_62)]"
       onMouseLeave={leave}
     >
       <Slug index="04" label="Work" face="mefiant" className="mb-6" />
@@ -265,39 +393,47 @@ export function Projects() {
         Three apps, three sites, two in build
       </h2>
 
-      {WORK.map((group, gi) => (
-        <motion.div key={group.band} {...rise} className={gi ? 'mt-20' : ''}>
-          {/* The band carried its own hairline, which landed a few pixels under
-              the previous band's closing rule and read as a double line. It
-              has none now: the space above it and the marker beside it do the
-              separating, and the only rule at a boundary is the one the last
-              row already draws. */}
-          <h3 className="mono-label flex items-baseline justify-between gap-4 pb-5">
-            <span className="flex items-center gap-2.5">
-              <span aria-hidden="true" className="size-1.5 shrink-0 bg-current" />
-              {group.band}
-            </span>
-            {/* the index range, not a count — it ties the band to the numbers
-                running down the left edge */}
-            <span className="opacity-50">
-              {group.items.length > 1
-                ? `${group.items[0]!.index}—${group.items[group.items.length - 1]!.index}`
-                : group.items[0]!.index}
-            </span>
-          </h3>
-          <ul>
-            {group.items.map((item) => (
-              <Row
-                key={item.index}
-                item={item}
-                dimmed={hovered !== null && hovered.index !== item.index}
-                onEnter={() => enter(item)}
-                onLeave={leave}
-              />
-            ))}
-          </ul>
-        </motion.div>
-      ))}
+      <div ref={list}>
+        {!fine && <Pinned item={WORK.flatMap((g) => g.items).find((i) => i.index === inView) ?? null} host={list} />}
+
+        {WORK.map((group, gi) => (
+          <motion.div key={group.band} {...rise} className={gi ? 'mt-20' : ''}>
+            {/* The band carried its own hairline, which landed a few pixels
+                under the previous band's closing rule and read as a double
+                line. It has none now: the space above it and the marker beside
+                it do the separating, and the only rule at a boundary is the one
+                the last row already draws. */}
+            <h3 className="mono-label flex items-baseline justify-between gap-4 pb-5">
+              <span className="flex items-center gap-2.5">
+                <span aria-hidden="true" className="size-1.5 shrink-0 bg-current" />
+                {group.band}
+              </span>
+              {/* the index range, not a count — it ties the band to the numbers
+                  running down the left edge */}
+              <span className="opacity-50">
+                {group.items.length > 1
+                  ? `${group.items[0]!.index}—${group.items[group.items.length - 1]!.index}`
+                  : group.items[0]!.index}
+              </span>
+            </h3>
+            <ul>
+              {group.items.map((item) => (
+                <Row
+                  key={item.index}
+                  item={item}
+                  dimmed={
+                    fine
+                      ? hovered !== null && hovered.index !== item.index
+                      : inView !== null && inView !== item.index
+                  }
+                  onEnter={() => enter(item)}
+                  onLeave={leave}
+                />
+              ))}
+            </ul>
+          </motion.div>
+        ))}
+      </div>
 
       <Trailer item={hovered} />
     </section>

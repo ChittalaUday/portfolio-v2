@@ -1,6 +1,20 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
-export type Pointer = { x: number; y: number; active: boolean }
+export type Pointer = {
+  x: number
+  y: number
+  /** a pointer that HOVERS — a mouse or trackpad. Never true for touch. */
+  active: boolean
+  /**
+   * a pointer that is pressed right now, touch included.
+   *
+   * Separate from `active` on purpose: the bloub faces track `active`, because
+   * a face frozen staring at wherever you last tapped is worse than one that
+   * wanders. The hero ripple wants the opposite — while a finger is down it
+   * IS a live cursor, and it stops being one the moment the finger lifts.
+   */
+  down: boolean
+}
 
 /**
  * One pointermove listener for the whole page. The hero ripple, the bloub

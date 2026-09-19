@@ -14,7 +14,7 @@ import { Contact } from '@/sections/Contact'
 import { Footer } from '@/sections/Footer'
 
 export default function App() {
-  const pointer = useRef<Pointer>({ x: 0, y: 0, active: false })
+  const pointer = useRef<Pointer>({ x: 0, y: 0, active: false, down: false })
   const reduced = useReducedMotion()
   const fine = useFinePointer()
 
@@ -32,10 +32,25 @@ export default function App() {
     const leave = () => {
       pointer.current.active = false
     }
+    // a touch is a cursor only for as long as it is held — see `Pointer.down`
+    const press = (e: PointerEvent) => {
+      pointer.current.x = e.clientX
+      pointer.current.y = e.clientY
+      pointer.current.down = true
+    }
+    const release = () => {
+      pointer.current.down = false
+    }
     window.addEventListener('pointermove', move, { passive: true })
+    window.addEventListener('pointerdown', press, { passive: true })
+    window.addEventListener('pointerup', release, { passive: true })
+    window.addEventListener('pointercancel', release, { passive: true })
     document.addEventListener('pointerleave', leave)
     return () => {
       window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerdown', press)
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
       document.removeEventListener('pointerleave', leave)
     }
   }, [])
@@ -44,8 +59,20 @@ export default function App() {
     <>
       <Shapes />
       <main className="min-h-screen bg-ink text-fg">
-        <Hero />
-        <About />
+        {/* The hero is sticky and About scrolls OVER it. Both need to share one
+            positioned parent for that: the hero's sticky travel is the height
+            of this box, so it releases the moment About has finished passing
+            and never lingers under the rest of the page.
+
+            `overflow-x-clip` because the pinned hero pitches: its near edge
+            projects WIDER than the viewport, and the hero's own
+            `overflow-hidden` cannot help — that clips its children, not its own
+            transformed box. `clip` and not `hidden`, or this becomes a scroll
+            container and the sticky child inside it would never move. */}
+        <div className="relative overflow-x-clip">
+          <Hero />
+          <About />
+        </div>
         <Stack />
         <Projects />
         <Path />

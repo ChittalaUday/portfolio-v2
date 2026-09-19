@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { BloubSolid } from '@/components/BloubSolid'
 import { ME } from '@/lib/content'
 
 export function Footer() {
@@ -28,6 +29,15 @@ export function Footer() {
         <a href="#hero" className="transition-colors hover:text-signal">
           Scroll ↑
         </a>
+      </div>
+
+      {/* The page's last object, and the only one you can pick up and turn.
+          It sits here rather than mid-page on purpose: a thing to play with
+          belongs where there is nothing left to read, and the footer was a
+          wordmark and a link row — the one section with no motion at all. */}
+      <div className="flex flex-col items-center gap-5 pb-10">
+        <BloubSolid />
+        <p className="mono-label text-fg-faint">Drag to turn · tap to reshape</p>
       </div>
 
       {/* wordmark as texture — condensed so the full name fits the bleed
